@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "WebFetch(domain:dynamic-media-cdn.tripadvisor.com)",
+      "Bash(dir \"C:\\\\Users\\\\matia\\\\OneDrive\\\\Escritorio\\\\sandbox\\\\multiplayer8bitgame\" /s)",
+      "Bash(dir /s /b)",
+      "Bash(ls:*)"
+    ]
+  }
+}
