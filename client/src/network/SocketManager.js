@@ -1,7 +1,9 @@
 import { io } from 'socket.io-client';
 
-// Server URL - uses environment variable in production, localhost in development
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+// Server URL - auto-detect in production, localhost in development
+const SERVER_URL = import.meta.env.DEV
+  ? 'http://localhost:3001'
+  : window.location.origin;
 
 class SocketManagerClass {
   constructor() {
