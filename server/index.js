@@ -129,6 +129,7 @@ io.on('connection', (socket) => {
         playerName,
         players: room.getPlayersInfo(),
         selectedMap: room.getSelectedMap(),
+        gameMode: room.gameMode,
       });
     } catch (error) {
       console.error('Error joining room:', error);
@@ -154,6 +155,38 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Error selecting map:', error);
+    }
+  });
+
+  // Select game mode (host only)
+  socket.on('room:selectGameMode', ({ mode }) => {
+    try {
+      console.log(`Game mode selection request: ${mode} for room ${socket.roomCode}`);
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room && !room.gameStarted) {
+        if (room.setGameMode(mode)) {
+          console.log(`Game mode set to ${mode} for room ${socket.roomCode}`);
+          io.to(socket.roomCode).emit('room:gameModeChanged', {
+            mode,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error selecting game mode:', error);
+    }
+  });
+
+  // Select perk (wave survival mode)
+  socket.on('wave:selectPerk', ({ perkId }) => {
+    try {
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room && room.gameMode === 'WAVE_SURVIVAL' && room.waveState === 'intermission') {
+        room.selectPerk(socket.id, perkId);
+      }
+    } catch (error) {
+      console.error('Error selecting perk:', error);
     }
   });
 
@@ -191,6 +224,20 @@ io.on('connection', (socket) => {
       }
     } catch (error) {
       console.error('Error setting ready status:', error);
+    }
+  });
+
+  // Play again (restart game with same players)
+  socket.on('game:playAgain', () => {
+    try {
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room && room.gameEnded) {
+        room.resetForNewGame();
+        room.startGame();
+      }
+    } catch (error) {
+      console.error('Error restarting game:', error);
     }
   });
 

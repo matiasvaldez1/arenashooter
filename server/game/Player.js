@@ -1,4 +1,4 @@
-import { PLAYER_CLASSES, GAME_CONFIG, SPAWN_INVINCIBILITY, POWERUPS, DODGE_CONFIG } from '../../shared/constants.js';
+import { PLAYER_CLASSES, GAME_CONFIG, SPAWN_INVINCIBILITY, POWERUPS, DODGE_CONFIG, PERKS } from '../../shared/constants.js';
 
 export class Player {
   constructor(id, name) {
@@ -41,6 +41,9 @@ export class Player {
     this.activePowerups = {};
     this.shieldHits = 0;
     this.ricochetCount = 0;
+
+    // Perks (permanent for wave survival mode)
+    this.perks = {};
 
     // Spawn protection
     this.spawnProtection = false;
@@ -89,6 +92,11 @@ export class Player {
   getEffectiveSpeed() {
     let speed = this.speed;
 
+    // Perk bonus (permanent)
+    if (this.perks.SPEED_BOOST) {
+      speed *= (1 + PERKS.SPEED_BOOST.effect.speedMultiplier * this.perks.SPEED_BOOST);
+    }
+
     // Power-up multiplier
     if (this.activePowerups.SPEED) {
       speed *= POWERUPS.SPEED.effect.speedMultiplier;
@@ -109,6 +117,11 @@ export class Player {
 
   getEffectiveDamage(baseDamage) {
     let damage = baseDamage;
+
+    // Perk bonus (permanent)
+    if (this.perks.DAMAGE_BOOST) {
+      damage *= (1 + PERKS.DAMAGE_BOOST.effect.damageMultiplier * this.perks.DAMAGE_BOOST);
+    }
 
     // Power-up multiplier
     if (this.activePowerups.DAMAGE) {
@@ -132,6 +145,11 @@ export class Player {
     const stats = PLAYER_CLASSES[this.classType];
     let fireRate = stats.fireRate;
 
+    // Perk bonus (permanent)
+    if (this.perks.FIRE_RATE_BOOST) {
+      fireRate *= (1 + PERKS.FIRE_RATE_BOOST.effect.fireRateMultiplier * this.perks.FIRE_RATE_BOOST);
+    }
+
     // Power-up multiplier
     if (this.activePowerups.RAPID_FIRE) {
       fireRate *= POWERUPS.RAPID_FIRE.effect.fireRateMultiplier;
@@ -148,6 +166,55 @@ export class Player {
     }
 
     return fireRate;
+  }
+
+  getEffectiveMaxHealth() {
+    let health = this.maxHealth;
+
+    // Perk bonus (permanent)
+    if (this.perks.HEALTH_BOOST) {
+      health += PERKS.HEALTH_BOOST.effect.healthBonus * this.perks.HEALTH_BOOST;
+    }
+
+    return health;
+  }
+
+  getEffectiveLifeSteal() {
+    let lifeSteal = 0;
+
+    // Base life steal for Biden
+    if (this.classType === 'BIDEN') {
+      lifeSteal = PLAYER_CLASSES.BIDEN.lifeSteal;
+    }
+
+    // Perk bonus (permanent)
+    if (this.perks.VAMPIRISM) {
+      lifeSteal += PERKS.VAMPIRISM.effect.lifeSteal * this.perks.VAMPIRISM;
+    }
+
+    return lifeSteal;
+  }
+
+  getEffectiveUltimateChargeRate() {
+    let rate = 1.0;
+
+    // Perk bonus (permanent)
+    if (this.perks.ULTIMATE_CHARGE) {
+      rate *= (1 + PERKS.ULTIMATE_CHARGE.effect.ultimateChargeMultiplier * this.perks.ULTIMATE_CHARGE);
+    }
+
+    return rate;
+  }
+
+  getEffectiveProjectileSizeMultiplier() {
+    let multiplier = 1.0;
+
+    // Perk bonus (permanent)
+    if (this.perks.PROJECTILE_SIZE) {
+      multiplier += PERKS.PROJECTILE_SIZE.effect.projectileSizeMultiplier * this.perks.PROJECTILE_SIZE;
+    }
+
+    return multiplier;
   }
 
   update(deltaTime) {
@@ -203,7 +270,8 @@ export class Player {
 
     // Charge ultimate from movement
     if (dx !== 0 || dy !== 0) {
-      this.ultimateCharge = Math.min(100, this.ultimateCharge + deltaTime * 2);
+      const chargeRate = this.getEffectiveUltimateChargeRate();
+      this.ultimateCharge = Math.min(100, this.ultimateCharge + deltaTime * 2 * chargeRate);
     }
   }
 
@@ -353,8 +421,19 @@ export class Player {
   }
 
   // Universal dodge - available to all characters
+  getEffectiveDodgeCooldown() {
+    let cooldown = DODGE_CONFIG.cooldown;
+
+    // Perk bonus (permanent)
+    if (this.perks.COOLDOWN_REDUCTION) {
+      cooldown *= (1 - PERKS.COOLDOWN_REDUCTION.effect.cooldownReduction * this.perks.COOLDOWN_REDUCTION);
+    }
+
+    return cooldown;
+  }
+
   canDodge() {
-    return Date.now() - this.lastDodgeTime >= DODGE_CONFIG.cooldown;
+    return Date.now() - this.lastDodgeTime >= this.getEffectiveDodgeCooldown();
   }
 
   performDodge(direction) {
@@ -429,6 +508,36 @@ export class Player {
     }
   }
 
+  // Perks (permanent upgrades for wave survival mode)
+  addPerk(perkId) {
+    const perk = PERKS[perkId];
+    if (!perk) return false;
+
+    if (!this.perks[perkId]) {
+      this.perks[perkId] = 0;
+    }
+
+    if (this.perks[perkId] >= perk.maxStacks) {
+      return false; // Max stacks reached
+    }
+
+    this.perks[perkId]++;
+
+    // Apply immediate effects for health boost
+    if (perkId === 'HEALTH_BOOST') {
+      const newMaxHealth = this.getEffectiveMaxHealth();
+      const healthDiff = newMaxHealth - this.maxHealth;
+      this.maxHealth = newMaxHealth;
+      this.health = Math.min(this.health + healthDiff, this.maxHealth);
+    }
+
+    return true;
+  }
+
+  getPerkStacks(perkId) {
+    return this.perks[perkId] || 0;
+  }
+
   getState() {
     return {
       id: this.id,
@@ -449,6 +558,7 @@ export class Player {
       shieldHits: this.shieldHits,
       spawnProtection: this.spawnProtection,
       activePowerups: Object.keys(this.activePowerups),
+      perks: this.perks,
     };
   }
 }

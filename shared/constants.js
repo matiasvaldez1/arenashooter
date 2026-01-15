@@ -203,3 +203,173 @@ export const DODGE_CONFIG = {
   cooldown: 1500,
   iframeDuration: 200, // invincibility frames during dodge
 };
+
+// ==========================================
+// ROGUELIKE MODE CONSTANTS
+// ==========================================
+
+export const GAME_MODES = {
+  ARENA: {
+    id: 'ARENA',
+    name: 'Arena Deathmatch',
+    description: 'Classic free-for-all arena combat',
+    minPlayers: 1,
+    maxPlayers: 8,
+  },
+  WAVE_SURVIVAL: {
+    id: 'WAVE_SURVIVAL',
+    name: 'Wave Survival',
+    description: 'Survive endless waves of enemies together',
+    minPlayers: 1,
+    maxPlayers: 4,
+    isCooperative: true,
+  },
+};
+
+export const ARENA_CONFIG = {
+  GAME_DURATION_MS: 90 * 1000, // 90 seconds
+  WIN_SCORE: null, // null = time-based, or set a score to win
+};
+
+export const WAVE_CONFIG = {
+  BASE_MOB_COUNT: 5,
+  MOB_INCREMENT_PER_WAVE: 2,
+  WAVE_DELAY_MS: 8000,
+  SPAWN_INTERVAL_MS: 800,
+  ELITE_CHANCE_BASE: 0.05,
+  ELITE_CHANCE_INCREMENT: 0.02,
+  ELITE_HEALTH_MULTIPLIER: 2.5,
+  ELITE_DAMAGE_MULTIPLIER: 1.5,
+  MAX_MOBS_ALIVE: 25,
+  HEALTH_SCALING: 1.12,
+  DAMAGE_SCALING: 1.08,
+  PERK_SELECTION_TIME_MS: 15000,
+};
+
+export const PERKS = {
+  DAMAGE_BOOST: {
+    id: 'DAMAGE_BOOST',
+    name: 'Rage',
+    description: '+20% damage',
+    color: '#ff4444',
+    effect: { damageMultiplier: 0.2 },
+    maxStacks: 5,
+  },
+  HEALTH_BOOST: {
+    id: 'HEALTH_BOOST',
+    name: 'Thick Skin',
+    description: '+30 max health',
+    color: '#44ff44',
+    effect: { healthBonus: 30 },
+    maxStacks: 5,
+  },
+  SPEED_BOOST: {
+    id: 'SPEED_BOOST',
+    name: 'Fleet Foot',
+    description: '+20% movement speed',
+    color: '#44ffff',
+    effect: { speedMultiplier: 0.2 },
+    maxStacks: 4,
+  },
+  FIRE_RATE_BOOST: {
+    id: 'FIRE_RATE_BOOST',
+    name: 'Trigger Happy',
+    description: '+25% fire rate',
+    color: '#ffff44',
+    effect: { fireRateMultiplier: 0.25 },
+    maxStacks: 4,
+  },
+  COOLDOWN_REDUCTION: {
+    id: 'COOLDOWN_REDUCTION',
+    name: 'Haste',
+    description: '-20% ability cooldown',
+    color: '#ff44ff',
+    effect: { cooldownReduction: 0.2 },
+    maxStacks: 3,
+  },
+  VAMPIRISM: {
+    id: 'VAMPIRISM',
+    name: 'Vampirism',
+    description: 'Heal 10% of damage dealt',
+    color: '#880044',
+    effect: { lifeSteal: 0.1 },
+    maxStacks: 3,
+  },
+  EXPLOSIVE_KILLS: {
+    id: 'EXPLOSIVE_KILLS',
+    name: 'Volatile',
+    description: 'Enemies explode on death',
+    color: '#ff8800',
+    effect: { explosiveKills: true, explosionRadius: 60, explosionDamage: 25 },
+    maxStacks: 1,
+  },
+  SHIELD_ON_WAVE: {
+    id: 'SHIELD_ON_WAVE',
+    name: 'Fresh Start',
+    description: '+2 shield hits at wave start',
+    color: '#4488ff',
+    effect: { waveShieldHits: 2 },
+    maxStacks: 3,
+  },
+  PROJECTILE_SIZE: {
+    id: 'PROJECTILE_SIZE',
+    name: 'Big Shots',
+    description: '+30% projectile size',
+    color: '#ff88ff',
+    effect: { projectileSizeMultiplier: 0.3 },
+    maxStacks: 3,
+  },
+  ULTIMATE_CHARGE: {
+    id: 'ULTIMATE_CHARGE',
+    name: 'Power Surge',
+    description: '+25% ultimate charge rate',
+    color: '#8844ff',
+    effect: { ultimateChargeMultiplier: 0.25 },
+    maxStacks: 3,
+  },
+};
+
+export const MAP_MODIFIERS = {
+  DOUBLE_DAMAGE: {
+    id: 'DOUBLE_DAMAGE',
+    name: 'Glass Cannon',
+    description: 'Everyone deals 2x damage',
+    color: '#ff4444',
+    effect: { globalDamageMultiplier: 2.0 },
+  },
+  FAST_MOBS: {
+    id: 'FAST_MOBS',
+    name: 'Speed Demons',
+    description: 'Mobs move 50% faster',
+    color: '#44ff44',
+    effect: { mobSpeedMultiplier: 1.5 },
+  },
+  ELITE_SWARM: {
+    id: 'ELITE_SWARM',
+    name: 'Elite Swarm',
+    description: '+25% elite spawn chance',
+    color: '#ff8844',
+    effect: { eliteChanceBonus: 0.25 },
+  },
+  POWERUP_RAIN: {
+    id: 'POWERUP_RAIN',
+    name: 'Loot Goblins',
+    description: 'Powerups spawn 3x faster',
+    color: '#44ffff',
+    effect: { powerupSpawnMultiplier: 3.0 },
+  },
+  FOG_OF_WAR: {
+    id: 'FOG_OF_WAR',
+    name: 'Fog of War',
+    description: 'Limited visibility',
+    color: '#888888',
+    effect: { visibilityRadius: 250 },
+  },
+  REGENERATION: {
+    id: 'REGENERATION',
+    name: 'Regeneration',
+    description: 'All players slowly heal',
+    color: '#88ff88',
+    effect: { regenPerSecond: 3 },
+  },
+};

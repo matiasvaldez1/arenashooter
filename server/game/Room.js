@@ -1,6 +1,6 @@
 import { Player } from './Player.js';
 import { GameLoop } from './GameLoop.js';
-import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL } from '../../shared/constants.js';
+import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL, GAME_MODES, WAVE_CONFIG, PERKS, MAP_MODIFIERS, ARENA_CONFIG } from '../../shared/constants.js';
 import { MAPS, MOBS } from '../../shared/maps.js';
 
 export class Room {
@@ -23,6 +23,23 @@ export class Room {
     this.lastPowerupSpawn = 0;
     this.lastMobSpawn = 0;
     this.pendingTimeouts = []; // Track timeouts to clear on room cleanup
+
+    // Arena mode timer
+    this.gameStartTime = 0;
+    this.gameEnded = false;
+
+    // Wave Survival Mode state
+    this.gameMode = 'ARENA';
+    this.waveNumber = 0;
+    this.waveState = 'idle'; // 'idle', 'active', 'intermission', 'gameover'
+    this.waveStartTime = 0;
+    this.waveMobsToSpawn = 0;
+    this.waveMobsSpawned = 0;
+    this.lastWaveMobSpawn = 0;
+    this.activeModifiers = [];
+    this.pendingPerkOffers = new Map();
+    this.perkSelections = new Map();
+    this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
   }
 
   addPlayer(socket, name) {
@@ -60,6 +77,14 @@ export class Room {
     return false;
   }
 
+  setGameMode(mode) {
+    if (GAME_MODES[mode]) {
+      this.gameMode = mode;
+      return true;
+    }
+    return false;
+  }
+
   getSelectedMap() {
     return this.selectedMap;
   }
@@ -89,6 +114,8 @@ export class Room {
 
   startGame() {
     this.gameStarted = true;
+    this.gameStartTime = Date.now();
+    this.gameEnded = false;
 
     // Initialize spawn points
     const spawnPoints = this.getSpawnPoints();
@@ -102,17 +129,41 @@ export class Room {
     // Initialize hazards and barrels
     this.initializeEnvironment();
 
+    // Wave Survival Mode initialization
+    if (this.gameMode === 'WAVE_SURVIVAL') {
+      this.rollMapModifiers(2);
+      this.waveNumber = 0;
+      this.waveState = 'idle';
+      this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+      // Don't spawn mobs normally - wave system handles it
+      this.mobs = [];
+    }
+
     // Start game loop
     this.gameLoop = new GameLoop(this);
     this.gameLoop.start();
 
-    console.log(`Starting game in room ${this.code} with map: ${this.selectedMap}`);
+    console.log(`Starting game in room ${this.code} with map: ${this.selectedMap}, mode: ${this.gameMode}`);
     this.io.to(this.code).emit('game:start', {
       players: this.getGameState().players,
       hazards: this.hazards,
       barrels: this.barrels,
       mapId: this.selectedMap,
+      gameMode: this.gameMode,
+      modifiers: this.activeModifiers,
+      gameDuration: this.gameMode === 'ARENA' ? ARENA_CONFIG.GAME_DURATION_MS : null,
     });
+
+    // Start first wave after a short delay
+    if (this.gameMode === 'WAVE_SURVIVAL') {
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+        if (this.gameStarted) {
+          this.startNextWave();
+        }
+      }, 3000);
+      this.pendingTimeouts.push(timeoutId);
+    }
   }
 
   initializeEnvironment() {
@@ -215,6 +266,12 @@ export class Room {
     const killer = this.players.get(killerId);
     if (killer) {
       killer.score += 5; // Mobs give 5 points
+
+      // Handle explosive kills perk
+      if (killer.perks && killer.perks.EXPLOSIVE_KILLS) {
+        const perk = PERKS.EXPLOSIVE_KILLS;
+        this.createExplosion(mob.x, mob.y, perk.effect.explosionRadius, killerId, perk.effect.explosionDamage);
+      }
     }
 
     this.io.to(this.code).emit('mob:death', {
@@ -228,7 +285,15 @@ export class Room {
       this.mobs.splice(index, 1);
     }
 
-    // Schedule respawn with tracked timeout
+    // Wave Survival Mode - check wave completion
+    if (this.gameMode === 'WAVE_SURVIVAL') {
+      this.waveStats.mobsKilled++;
+      this.waveStats.totalMobsKilled++;
+      this.checkWaveCompletion();
+      return; // No respawn in wave mode
+    }
+
+    // Arena Mode - Schedule respawn with tracked timeout
     const map = MAPS[this.selectedMap];
     if (map && map.hasMobs) {
       const timeoutId = setTimeout(() => {
@@ -605,8 +670,9 @@ export class Room {
       vx: Math.cos(angle) * stats.projectileSpeed,
       vy: Math.sin(angle) * stats.projectileSpeed,
       damage: damage,
-      lifeSteal: player.classType === 'BIDEN' ? PLAYER_CLASSES.BIDEN.lifeSteal : 0,
+      lifeSteal: player.getEffectiveLifeSteal(),
       ricochetCount: player.ricochetCount,
+      sizeMultiplier: player.getEffectiveProjectileSizeMultiplier(),
       createdAt: Date.now(),
     };
     this.bullets.push(bullet);
@@ -851,5 +917,366 @@ export class Room {
     const dx = px - xx;
     const dy = py - yy;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  // ==========================================
+  // WAVE SURVIVAL MODE METHODS
+  // ==========================================
+
+  rollMapModifiers(count = 2) {
+    const allModifiers = Object.keys(MAP_MODIFIERS);
+    const selected = [];
+
+    while (selected.length < count && allModifiers.length > 0) {
+      const idx = Math.floor(Math.random() * allModifiers.length);
+      selected.push(allModifiers.splice(idx, 1)[0]);
+    }
+
+    this.activeModifiers = selected;
+    console.log(`Rolled modifiers for room ${this.code}:`, this.activeModifiers);
+    return selected;
+  }
+
+  getEffectiveModifier(effectKey) {
+    let value = 1.0;
+
+    for (const modId of this.activeModifiers) {
+      const mod = MAP_MODIFIERS[modId];
+      if (mod && mod.effect[effectKey] !== undefined) {
+        if (typeof mod.effect[effectKey] === 'number') {
+          value *= mod.effect[effectKey];
+        }
+      }
+    }
+
+    return value;
+  }
+
+  hasModifier(modifierId) {
+    return this.activeModifiers.includes(modifierId);
+  }
+
+  startNextWave() {
+    this.waveNumber++;
+    this.waveState = 'active';
+    this.waveStartTime = Date.now();
+    this.waveStats.mobsKilled = 0;
+
+    // Calculate mobs for this wave
+    const baseMobs = WAVE_CONFIG.BASE_MOB_COUNT;
+    const increment = WAVE_CONFIG.MOB_INCREMENT_PER_WAVE;
+    this.waveMobsToSpawn = baseMobs + (this.waveNumber - 1) * increment;
+    this.waveMobsSpawned = 0;
+    this.lastWaveMobSpawn = 0;
+
+    // Cap max mobs
+    this.waveMobsToSpawn = Math.min(this.waveMobsToSpawn, WAVE_CONFIG.MAX_MOBS_ALIVE + 10);
+
+    // Apply shield perks at wave start
+    for (const player of this.players.values()) {
+      if (player.perks && player.perks.SHIELD_ON_WAVE) {
+        const shieldsToAdd = PERKS.SHIELD_ON_WAVE.effect.waveShieldHits * player.perks.SHIELD_ON_WAVE;
+        player.shieldHits = Math.min((player.shieldHits || 0) + shieldsToAdd, 10);
+      }
+    }
+
+    console.log(`Wave ${this.waveNumber} starting in room ${this.code}: ${this.waveMobsToSpawn} mobs`);
+
+    this.io.to(this.code).emit('wave:start', {
+      waveNumber: this.waveNumber,
+      mobCount: this.waveMobsToSpawn,
+      modifiers: this.activeModifiers,
+    });
+  }
+
+  spawnWaveMob() {
+    if (this.waveMobsSpawned >= this.waveMobsToSpawn) return null;
+    if (this.mobs.length >= WAVE_CONFIG.MAX_MOBS_ALIVE) return null;
+
+    // Select mob type based on wave
+    const mobTypes = Object.keys(MOBS);
+    let mobType;
+
+    if (this.waveNumber <= 2) {
+      // Early waves: weak mobs
+      mobType = mobTypes.filter(t => MOBS[t].health <= 40)[0] || mobTypes[0];
+    } else if (this.waveNumber <= 5) {
+      // Mid waves: random weak/medium
+      const available = mobTypes.filter(t => MOBS[t].health <= 60);
+      mobType = available[Math.floor(Math.random() * available.length)] || mobTypes[0];
+    } else {
+      // Late waves: any mob including strong ones
+      mobType = mobTypes[Math.floor(Math.random() * mobTypes.length)];
+    }
+
+    // Check for elite spawn
+    let isElite = false;
+    const eliteChance = WAVE_CONFIG.ELITE_CHANCE_BASE +
+      (this.waveNumber - 1) * WAVE_CONFIG.ELITE_CHANCE_INCREMENT +
+      (this.hasModifier('ELITE_SWARM') ? MAP_MODIFIERS.ELITE_SWARM.effect.eliteChanceBonus : 0);
+
+    if (Math.random() < eliteChance) {
+      isElite = true;
+    }
+
+    const mob = this.spawnMob(mobType);
+    if (mob) {
+      // Apply wave scaling
+      const healthScale = Math.pow(WAVE_CONFIG.HEALTH_SCALING, this.waveNumber - 1);
+      mob.health = Math.floor(mob.health * healthScale);
+      mob.maxHealth = mob.health;
+
+      // Apply elite bonus
+      if (isElite) {
+        mob.health = Math.floor(mob.health * WAVE_CONFIG.ELITE_HEALTH_MULTIPLIER);
+        mob.maxHealth = mob.health;
+        mob.isElite = true;
+      }
+
+      // Apply fast mobs modifier
+      if (this.hasModifier('FAST_MOBS')) {
+        mob.speedMultiplier = MAP_MODIFIERS.FAST_MOBS.effect.mobSpeedMultiplier;
+      }
+
+      this.waveMobsSpawned++;
+      this.io.to(this.code).emit('mob:spawn', mob);
+    }
+
+    return mob;
+  }
+
+  checkWaveCompletion() {
+    // Wave complete when all mobs spawned and killed
+    if (this.waveState !== 'active') return;
+
+    const allSpawned = this.waveMobsSpawned >= this.waveMobsToSpawn;
+    const allKilled = this.mobs.length === 0;
+
+    if (allSpawned && allKilled) {
+      this.onWaveComplete();
+    }
+  }
+
+  onWaveComplete() {
+    this.waveState = 'intermission';
+
+    console.log(`Wave ${this.waveNumber} complete in room ${this.code}`);
+
+    this.io.to(this.code).emit('wave:complete', {
+      waveNumber: this.waveNumber,
+      mobsKilled: this.waveStats.mobsKilled,
+      totalMobsKilled: this.waveStats.totalMobsKilled,
+    });
+
+    // Offer perks
+    this.offerPerks();
+  }
+
+  offerPerks() {
+    this.pendingPerkOffers.clear();
+    this.perkSelections.clear();
+
+    const allPerks = Object.keys(PERKS);
+
+    for (const player of this.players.values()) {
+      // Roll 3 random perks (avoid maxed perks)
+      const availablePerks = allPerks.filter(perkId => {
+        const perk = PERKS[perkId];
+        const currentStacks = player.perks?.[perkId] || 0;
+        return currentStacks < perk.maxStacks;
+      });
+
+      const offers = [];
+      const tempAvailable = [...availablePerks];
+
+      while (offers.length < 3 && tempAvailable.length > 0) {
+        const idx = Math.floor(Math.random() * tempAvailable.length);
+        offers.push(tempAvailable.splice(idx, 1)[0]);
+      }
+
+      this.pendingPerkOffers.set(player.id, offers);
+
+      this.io.to(player.id).emit('wave:perkOffer', {
+        perks: offers.map(id => ({
+          id,
+          ...PERKS[id],
+          currentStacks: player.perks?.[id] || 0,
+        })),
+        timeRemaining: WAVE_CONFIG.PERK_SELECTION_TIME_MS,
+      });
+    }
+
+    // Auto-select first perk after timeout
+    const timeoutId = setTimeout(() => {
+      this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+      if (this.gameStarted && this.waveState === 'intermission') {
+        this.autoSelectPerks();
+      }
+    }, WAVE_CONFIG.PERK_SELECTION_TIME_MS);
+    this.pendingTimeouts.push(timeoutId);
+  }
+
+  selectPerk(playerId, perkId) {
+    const player = this.players.get(playerId);
+    const offers = this.pendingPerkOffers.get(playerId);
+
+    if (!player || !offers || !offers.includes(perkId)) return false;
+    if (this.perkSelections.has(playerId)) return false; // Already selected
+
+    player.addPerk(perkId);
+    this.perkSelections.set(playerId, perkId);
+
+    this.io.to(this.code).emit('wave:perkSelected', {
+      playerId,
+      perkId,
+      playerPerks: player.perks,
+    });
+
+    // Check if all players selected
+    if (this.perkSelections.size >= this.players.size) {
+      this.startNextWave();
+    }
+
+    return true;
+  }
+
+  autoSelectPerks() {
+    // Auto-select for players who haven't chosen
+    for (const player of this.players.values()) {
+      if (!this.perkSelections.has(player.id)) {
+        const offers = this.pendingPerkOffers.get(player.id);
+        if (offers && offers.length > 0) {
+          this.selectPerk(player.id, offers[0]);
+        }
+      }
+    }
+  }
+
+  checkAllPlayersDead() {
+    for (const player of this.players.values()) {
+      if (player.alive) return false;
+    }
+    return true;
+  }
+
+  onWaveSurvivalGameOver() {
+    if (this.waveState === 'gameover') return;
+
+    this.waveState = 'gameover';
+
+    console.log(`Wave Survival game over in room ${this.code} at wave ${this.waveNumber}`);
+
+    this.io.to(this.code).emit('wave:gameOver', {
+      finalWave: this.waveNumber,
+      totalMobsKilled: this.waveStats.totalMobsKilled,
+      scores: this.getScores(),
+    });
+  }
+
+  getWaveState() {
+    return {
+      gameMode: this.gameMode,
+      waveNumber: this.waveNumber,
+      waveState: this.waveState,
+      mobsRemaining: this.mobs.length,
+      mobsToSpawn: this.waveMobsToSpawn - this.waveMobsSpawned,
+      modifiers: this.activeModifiers,
+    };
+  }
+
+  // ==========================================
+  // ARENA MODE TIMER
+  // ==========================================
+
+  getTimeRemaining() {
+    if (this.gameMode !== 'ARENA' || !this.gameStartTime) return null;
+    const elapsed = Date.now() - this.gameStartTime;
+    return Math.max(0, ARENA_CONFIG.GAME_DURATION_MS - elapsed);
+  }
+
+  checkArenaTimeLimit() {
+    if (this.gameMode !== 'ARENA') return;
+    if (this.gameEnded) return;
+
+    const timeRemaining = this.getTimeRemaining();
+    if (timeRemaining !== null && timeRemaining <= 0) {
+      this.endArenaGame();
+    }
+  }
+
+  endArenaGame() {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+
+    console.log(`Arena game ended in room ${this.code}`);
+
+    // Find winner (highest score)
+    const scores = this.getScores();
+    scores.sort((a, b) => b.score - a.score);
+    const winner = scores.length > 0 ? scores[0] : null;
+
+    this.io.to(this.code).emit('game:end', {
+      reason: 'time',
+      winner: winner,
+      scores: scores,
+    });
+
+    // Stop the game loop
+    if (this.gameLoop) {
+      this.gameLoop.stop();
+    }
+  }
+
+  resetForNewGame() {
+    // Stop existing game loop
+    if (this.gameLoop) {
+      this.gameLoop.stop();
+      this.gameLoop = null;
+    }
+
+    // Clear pending timeouts
+    this.pendingTimeouts.forEach(id => clearTimeout(id));
+    this.pendingTimeouts = [];
+
+    // Reset game state
+    this.bullets = [];
+    this.grenades = [];
+    this.powerups = [];
+    this.turrets = [];
+    this.barriers = [];
+    this.barrels = [];
+    this.healZones = [];
+    this.hazards = [];
+    this.mobs = [];
+    this.gameStarted = false;
+    this.gameEnded = false;
+    this.gameStartTime = 0;
+    this.lastPowerupSpawn = 0;
+    this.lastMobSpawn = 0;
+
+    // Reset wave survival state
+    this.waveNumber = 0;
+    this.waveState = 'idle';
+    this.waveStartTime = 0;
+    this.waveMobsToSpawn = 0;
+    this.waveMobsSpawned = 0;
+    this.lastWaveMobSpawn = 0;
+    this.pendingPerkOffers.clear();
+    this.perkSelections.clear();
+    this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+
+    // Reset players (keep them in the room but reset stats)
+    for (const player of this.players.values()) {
+      player.score = 0;
+      player.kills = 0;
+      player.deaths = 0;
+      player.killStreak = 0;
+      player.perks = {};
+      player.activePowerups = {};
+      player.shieldHits = 0;
+      player.ricochetCount = 0;
+    }
+
+    console.log(`Room ${this.code} reset for new game`);
   }
 }

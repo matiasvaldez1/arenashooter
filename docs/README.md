@@ -45,9 +45,8 @@ This starts both client and server:
 
 ## Game Modes
 
-Currently supports:
-- **Free-for-All**: Every player for themselves
-- **Room-based**: Up to 8 players per room
+- **Arena Deathmatch**: 90-second free-for-all matches. Highest score wins. Play again instantly or return to lobby.
+- **Wave Survival** (Co-op): Survive endless waves of enemies. Collect perks between waves to power up.
 
 ## Documentation
 

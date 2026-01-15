@@ -1,4 +1,4 @@
-import { GAME_CONFIG, PLAYER_CLASSES, HAZARDS, POWERUP_SPAWN_INTERVAL } from '../../shared/constants.js';
+import { GAME_CONFIG, PLAYER_CLASSES, HAZARDS, POWERUP_SPAWN_INTERVAL, WAVE_CONFIG, MAP_MODIFIERS } from '../../shared/constants.js';
 import { MOBS } from '../../shared/maps.js';
 
 export class GameLoop {
@@ -64,9 +64,49 @@ export class GameLoop {
     this.checkPowerupCollisions();
 
     // Spawn powerups
-    if (now - this.lastPowerupSpawn > POWERUP_SPAWN_INTERVAL) {
+    let powerupInterval = POWERUP_SPAWN_INTERVAL;
+    if (this.room.hasModifier && this.room.hasModifier('POWERUP_RAIN')) {
+      powerupInterval /= MAP_MODIFIERS.POWERUP_RAIN.effect.powerupSpawnMultiplier;
+    }
+    if (now - this.lastPowerupSpawn > powerupInterval) {
       this.room.spawnPowerup();
       this.lastPowerupSpawn = now;
+    }
+
+    // Wave Survival Mode updates
+    if (this.room.gameMode === 'WAVE_SURVIVAL') {
+      this.updateWaveMode(now, deltaTime);
+    }
+
+    // Arena mode time limit check
+    if (this.room.gameMode === 'ARENA') {
+      this.room.checkArenaTimeLimit();
+    }
+  }
+
+  updateWaveMode(now, deltaTime) {
+    // Spawn wave mobs gradually
+    if (this.room.waveState === 'active') {
+      const spawnInterval = WAVE_CONFIG.SPAWN_INTERVAL_MS;
+      if (now - this.room.lastWaveMobSpawn > spawnInterval) {
+        this.room.spawnWaveMob();
+        this.room.lastWaveMobSpawn = now;
+      }
+    }
+
+    // Apply regeneration modifier
+    if (this.room.hasModifier('REGENERATION')) {
+      const regenRate = MAP_MODIFIERS.REGENERATION.effect.regenPerSecond;
+      for (const player of this.room.players.values()) {
+        if (player.alive && player.health < player.maxHealth) {
+          player.heal(Math.ceil(regenRate * deltaTime));
+        }
+      }
+    }
+
+    // Check if all players dead (game over)
+    if (this.room.waveState === 'active' && this.room.checkAllPlayersDead()) {
+      this.room.onWaveSurvivalGameOver();
     }
   }
 
@@ -165,7 +205,9 @@ export class GameLoop {
         if (!mob.alive) continue;
         const dx = bullet.x - mob.x;
         const dy = bullet.y - mob.y;
-        if (Math.sqrt(dx * dx + dy * dy) < 25) {
+        const bulletRadius = 5 * (bullet.sizeMultiplier || 1);
+        const mobHitRadius = 20 + bulletRadius;
+        if (Math.sqrt(dx * dx + dy * dy) < mobHitRadius) {
           this.room.damageMob(mob, bullet.damage, bullet.ownerId);
           bulletsToRemove.add(i);
           break;
@@ -182,7 +224,9 @@ export class GameLoop {
 
         const dx = bullet.x - player.x;
         const dy = bullet.y - player.y;
-        const hitRadius = player.mechMode ? 24 : 20;
+        const playerRadius = player.mechMode ? 24 : 20;
+        const bulletRadius = 5 * (bullet.sizeMultiplier || 1);
+        const hitRadius = playerRadius + bulletRadius;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance < hitRadius) {

@@ -1,6 +1,6 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG } from '../../../shared/constants.js';
+import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG, GAME_MODES } from '../../../shared/constants.js';
 import { MAPS } from '../../../shared/maps.js';
 import { t, getLanguage } from '../utils/i18n.js';
 
@@ -14,10 +14,12 @@ export class LobbyScene extends Phaser.Scene {
     this.isHost = data.isHost;
     this.selectedClass = 'MESSI';
     this.selectedMap = 'ARENA';
+    this.selectedGameMode = 'ARENA';
     this.players = [];
     this.isReady = false;
     this.classCards = {};
     this.mapCards = {};
+    this.gameModeCards = {};
   }
 
   create() {
@@ -34,6 +36,9 @@ export class LobbyScene extends Phaser.Scene {
 
     // Character selection
     this.createCharacterSelection();
+
+    // Game mode selection (host only can change)
+    this.createGameModeSelection();
 
     // Map selection (host only can change, others see)
     this.createMapSelection();
@@ -371,14 +376,144 @@ export class LobbyScene extends Phaser.Scene {
     return classToUlt[classType] || 'goldenBall';
   }
 
+  createGameModeSelection() {
+    // Section header
+    const headerBg = this.add.rectangle(this.centerX, 365, 300, 24, 0xff8800, 0.2);
+
+    this.add
+      .text(this.centerX, 365, '[ GAME MODE ]', {
+        fontSize: '16px',
+        fill: '#ff8800',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    // Game mode cards
+    const modeKeys = Object.keys(GAME_MODES);
+    const spacing = 280;
+    const totalWidth = (modeKeys.length - 1) * spacing;
+    const startX = this.centerX - totalWidth / 2;
+
+    modeKeys.forEach((modeKey, index) => {
+      const x = startX + index * spacing;
+      this.gameModeCards[modeKey] = this.createGameModeCard(x, 420, modeKey);
+    });
+
+    // If not host, show message
+    if (!this.isHost) {
+      this.add
+        .text(this.centerX, 470, 'Host chooses the game mode', {
+          fontSize: '12px',
+          fill: '#888888',
+          fontFamily: 'Courier New',
+        })
+        .setOrigin(0.5);
+    }
+  }
+
+  createGameModeCard(x, y, modeKey) {
+    const mode = GAME_MODES[modeKey];
+    const container = this.add.container(x, y);
+    const isWave = modeKey === 'WAVE_SURVIVAL';
+    const color = isWave ? '#ff00ff' : '#00ffff';
+
+    // Card background with glow
+    const glow = this.add.rectangle(0, 0, 250, 80, Phaser.Display.Color.HexStringToColor(color).color, 0.2);
+    glow.setVisible(modeKey === this.selectedGameMode);
+
+    const bg = this.add.rectangle(0, 0, 240, 70, 0x000000, 0.8);
+    bg.setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(color).color);
+
+    // Mode name
+    const nameText = this.add
+      .text(0, -18, mode.name, {
+        fontSize: '16px',
+        fill: color,
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+
+    // Mode description
+    const descText = this.add
+      .text(0, 8, mode.description, {
+        fontSize: '11px',
+        fill: '#aaaaaa',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5);
+
+    // Selection indicator
+    const selector = this.add
+      .text(0, -35, '★', {
+        fontSize: '14px',
+        fill: '#ffff00',
+        fontFamily: 'Arial',
+      })
+      .setOrigin(0.5);
+    selector.setVisible(modeKey === this.selectedGameMode);
+
+    container.add([glow, bg, nameText, descText, selector]);
+    container.setSize(240, 70);
+
+    // Only host can interact
+    if (this.isHost) {
+      container.setInteractive({ useHandCursor: true });
+
+      container.on('pointerover', () => {
+        glow.setVisible(true);
+        SoundManager.playUIHover();
+      });
+
+      container.on('pointerout', () => {
+        if (this.selectedGameMode !== modeKey) {
+          glow.setVisible(false);
+        }
+      });
+
+      container.on('pointerdown', () => {
+        this.selectGameMode(modeKey);
+        SoundManager.playUIClick();
+      });
+    }
+
+    container.selector = selector;
+    container.glow = glow;
+
+    return container;
+  }
+
+  selectGameMode(modeKey) {
+    console.log('Selecting game mode:', modeKey);
+    this.selectedGameMode = modeKey;
+    SocketManager.emit('room:selectGameMode', { mode: modeKey });
+
+    // Update visuals
+    Object.keys(this.gameModeCards).forEach(key => {
+      this.gameModeCards[key].selector.setVisible(key === modeKey);
+      this.gameModeCards[key].glow.setVisible(key === modeKey);
+    });
+  }
+
+  updateSelectedGameMode(modeKey) {
+    this.selectedGameMode = modeKey;
+
+    // Update visuals
+    Object.keys(this.gameModeCards).forEach(key => {
+      this.gameModeCards[key].selector.setVisible(key === modeKey);
+      this.gameModeCards[key].glow.setVisible(key === modeKey);
+    });
+  }
+
   createMapSelection() {
     const isSpanish = getLanguage() === 'es-AR';
 
-    // Section header
-    const headerBg = this.add.rectangle(this.centerX, 365, 300, 24, 0x00ffff, 0.2);
+    // Section header - adjusted Y position
+    const headerBg = this.add.rectangle(this.centerX, 490, 300, 24, 0x00ffff, 0.2);
 
     this.add
-      .text(this.centerX, 365, isSpanish ? '[ SELECCIONAR MAPA ]' : '[ SELECT MAP ]', {
+      .text(this.centerX, 490, isSpanish ? '[ SELECCIONAR MAPA ]' : '[ SELECT MAP ]', {
         fontSize: '16px',
         fill: '#00ffff',
         fontFamily: 'Courier New',
@@ -394,13 +529,13 @@ export class LobbyScene extends Phaser.Scene {
 
     mapKeys.forEach((mapKey, index) => {
       const x = startX + index * spacing;
-      this.mapCards[mapKey] = this.createMapCard(x, 440, mapKey);
+      this.mapCards[mapKey] = this.createMapCard(x, 555, mapKey);
     });
 
     // If not host, show "waiting for host" message
     if (!this.isHost) {
       this.mapHostText = this.add
-        .text(this.centerX, 510, isSpanish ? 'El anfitrion elige el mapa' : 'Host chooses the map', {
+        .text(this.centerX, 610, isSpanish ? 'El anfitrion elige el mapa' : 'Host chooses the map', {
           fontSize: '12px',
           fill: '#888888',
           fontFamily: 'Courier New',
@@ -502,20 +637,18 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   createPlayersList() {
-    // Header
-    const headerBg = this.add.rectangle(this.centerX, 530, 300, 24, 0xffff00, 0.2);
-
+    // Compact players display on the right side
     this.add
-      .text(this.centerX, 530, t('lobby.players').toUpperCase(), {
-        fontSize: '16px',
+      .text(this.W - 140, 100, t('lobby.players').toUpperCase(), {
+        fontSize: '14px',
         fill: '#ffff00',
         fontFamily: 'Courier New',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
 
-    // Players container
-    this.playersContainer = this.add.container(this.centerX, 565);
+    // Players container - right side
+    this.playersContainer = this.add.container(this.W - 140, 130);
   }
 
   createReadyButton() {
@@ -593,6 +726,9 @@ export class LobbyScene extends Phaser.Scene {
       if (data.selectedMap) {
         this.updateSelectedMap(data.selectedMap);
       }
+      if (data.gameMode) {
+        this.updateSelectedGameMode(data.gameMode);
+      }
       this.statusText.setText(`${data.playerName} joined!`);
       this.time.delayedCall(2000, () => this.statusText.setText(''));
     });
@@ -610,6 +746,13 @@ export class LobbyScene extends Phaser.Scene {
       this.time.delayedCall(2000, () => this.statusText.setText(''));
     });
 
+    SocketManager.on('room:gameModeChanged', (data) => {
+      this.updateSelectedGameMode(data.mode);
+      const mode = GAME_MODES[data.mode];
+      this.statusText.setText(`Mode: ${mode.name}`);
+      this.time.delayedCall(2000, () => this.statusText.setText(''));
+    });
+
     SocketManager.on('room:playerLeft', (data) => {
       this.updatePlayersList(data.players);
       this.statusText.setText('A player left...');
@@ -622,7 +765,12 @@ export class LobbyScene extends Phaser.Scene {
       this.cameras.main.flash(500, 255, 255, 255);
 
       this.time.delayedCall(300, () => {
-        this.scene.start('GameScene', { players: data.players, mapId: data.mapId });
+        this.scene.start('GameScene', {
+          players: data.players,
+          mapId: data.mapId,
+          gameMode: data.gameMode,
+          modifiers: data.modifiers || [],
+        });
       });
     });
   }
@@ -695,6 +843,7 @@ export class LobbyScene extends Phaser.Scene {
     SocketManager.off('room:playerUpdated');
     SocketManager.off('room:playerLeft');
     SocketManager.off('room:mapChanged');
+    SocketManager.off('room:gameModeChanged');
     SocketManager.off('game:start');
   }
 }

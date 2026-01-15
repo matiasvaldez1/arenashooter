@@ -1,6 +1,6 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES } from '../../../shared/constants.js';
+import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES, PERKS, MAP_MODIFIERS } from '../../../shared/constants.js';
 import { MAPS, MOBS } from '../../../shared/maps.js';
 
 export class GameScene extends Phaser.Scene {
@@ -26,6 +26,19 @@ export class GameScene extends Phaser.Scene {
     this.hazards = [];
     this.mobs = {};
     this.lastInputSent = 0;
+
+    // Wave survival mode state
+    this.gameMode = data.gameMode || 'ARENA';
+    this.activeModifiers = data.modifiers || [];
+    this.waveNumber = 0;
+    this.mobsRemaining = 0;
+    this.perkSelectionActive = false;
+    this.selectedPerkId = null;
+
+    // Arena mode timer
+    this.gameDuration = data.gameDuration || null;
+    this.gameStartTime = Date.now();
+    this.gameEnded = false;
   }
 
   create() {
@@ -77,9 +90,9 @@ export class GameScene extends Phaser.Scene {
     // UI
     this.createUI();
 
-    // Send input at 60Hz
+    // Send input at 20Hz (reduced from 60Hz to avoid network flood)
     this.time.addEvent({
-      delay: 1000 / 60,
+      delay: 1000 / 20,
       callback: this.sendInput,
       callbackScope: this,
       loop: true,
@@ -175,6 +188,7 @@ export class GameScene extends Phaser.Scene {
           local.mechMode = playerData.mechMode || false;
           local.killStreak = playerData.killStreak || 0;
           local.spawnProtectionActive = playerData.spawnProtection || false;
+          local.perks = playerData.perks || {};
 
           // Update spawn protection visual
           local.spawnProtection.setVisible(local.spawnProtectionActive);
@@ -232,6 +246,24 @@ export class GameScene extends Phaser.Scene {
 
       // Update my ultimate bar
       this.updateUltimateUI();
+
+      // Wave survival UI updates
+      if (this.gameMode === 'WAVE_SURVIVAL') {
+        // Update mobs remaining
+        const mobCount = state.mobs ? state.mobs.length : 0;
+        if (this.mobsRemainingText && this.mobsRemaining !== mobCount) {
+          this.mobsRemaining = mobCount;
+          this.mobsRemainingText.setText(`Mobs: ${mobCount}`);
+        }
+
+        // Update perks display
+        this.updatePlayerPerksDisplay();
+
+        // Update fog of war position
+        if (this.fogGraphics) {
+          this.updateFogOfWar();
+        }
+      }
     });
 
     SocketManager.on('bullet:spawn', (bullet) => {
@@ -396,6 +428,44 @@ export class GameScene extends Phaser.Scene {
 
     SocketManager.on('mob:attack', (data) => {
       this.onMobAttack(data);
+    });
+
+    // Wave survival events
+    SocketManager.on('wave:start', (data) => {
+      this.onWaveStart(data);
+    });
+
+    SocketManager.on('wave:complete', (data) => {
+      this.onWaveComplete(data);
+    });
+
+    SocketManager.on('wave:perkOffer', (data) => {
+      this.onPerkOffer(data);
+    });
+
+    SocketManager.on('wave:perkSelected', (data) => {
+      this.onPerkSelected(data);
+    });
+
+    SocketManager.on('wave:gameOver', (data) => {
+      this.onWaveGameOver(data);
+    });
+
+    // Arena mode game end
+    SocketManager.on('game:end', (data) => {
+      this.onArenaGameEnd(data);
+    });
+
+    // Game restart (play again)
+    SocketManager.on('game:start', (data) => {
+      // Restart the scene with new game data
+      this.scene.restart({
+        players: data.players,
+        mapId: data.mapId,
+        gameMode: data.gameMode,
+        modifiers: data.modifiers || [],
+        gameDuration: data.gameDuration,
+      });
     });
   }
 
@@ -802,7 +872,9 @@ export class GameScene extends Phaser.Scene {
     const textureKey = projectileTextures[bulletData.classType] || 'bullet';
 
     const bullet = this.add.image(bulletData.x, bulletData.y, textureKey);
-    bullet.setScale(1.5);
+    const baseScale = 1.5;
+    const sizeMultiplier = bulletData.sizeMultiplier || 1;
+    bullet.setScale(baseScale * sizeMultiplier);
     bullet.id = bulletData.id;
     bullet.vx = bulletData.vx;
     bullet.vy = bulletData.vy;
@@ -2137,6 +2209,23 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0);
 
+    // Game timer (Arena mode only)
+    const timerBg = this.add.rectangle(centerX, 30, 100, 40, 0x000000, 0.7);
+    timerBg.setStrokeStyle(2, 0x00ffff);
+    timerBg.setScrollFactor(0);
+
+    this.gameTimerText = this.add
+      .text(centerX, 30, '3:00', {
+        fontSize: '24px',
+        fill: '#00ffff',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    this.timerBg = timerBg;
+
     // Instructions
     this.add
       .text(centerX, H - 20, 'WASD: Mover | Click: Disparar | SPACE: Esquivar | SHIFT: Habilidad | Q: Ultimate | TAB: Puntajes', {
@@ -2163,6 +2252,538 @@ export class GameScene extends Phaser.Scene {
 
     // Control hints that fade out after 10 seconds
     this.createControlHints();
+
+    // Wave survival UI (only created in WAVE_SURVIVAL mode)
+    if (this.gameMode === 'WAVE_SURVIVAL') {
+      this.createWaveSurvivalUI();
+    }
+  }
+
+  createWaveSurvivalUI() {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+    const centerX = W / 2;
+
+    // Wave counter (top center)
+    const waveBg = this.add.rectangle(centerX, 30, 200, 50, 0x000000, 0.8);
+    waveBg.setStrokeStyle(2, 0x00ffff);
+    waveBg.setScrollFactor(0);
+    waveBg.setDepth(200);
+
+    this.waveText = this.add
+      .text(centerX, 25, 'WAVE 1', {
+        fontSize: '28px',
+        fill: '#00ffff',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(201);
+
+    this.mobsRemainingText = this.add
+      .text(centerX, 45, 'Mobs: 0', {
+        fontSize: '14px',
+        fill: '#88ffff',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(201);
+
+    // Modifiers display (right side)
+    this.modifiersContainer = this.add.container(W - 100, 80);
+    this.modifiersContainer.setScrollFactor(0);
+    this.modifiersContainer.setDepth(200);
+    this.createModifiersDisplay();
+
+    // Perks display (left side below score)
+    this.perksContainer = this.add.container(15, 80);
+    this.perksContainer.setScrollFactor(0);
+    this.perksContainer.setDepth(200);
+
+    // Perk selection overlay (hidden by default)
+    this.perkSelectionContainer = this.add.container(centerX, H / 2);
+    this.perkSelectionContainer.setScrollFactor(0);
+    this.perkSelectionContainer.setDepth(500);
+    this.perkSelectionContainer.setVisible(false);
+
+    // Game over overlay (hidden by default)
+    this.gameOverContainer = this.add.container(centerX, H / 2);
+    this.gameOverContainer.setScrollFactor(0);
+    this.gameOverContainer.setDepth(600);
+    this.gameOverContainer.setVisible(false);
+
+    // Fog of war overlay (if modifier active)
+    if (this.activeModifiers.includes('FOG_OF_WAR')) {
+      this.createFogOfWar();
+    }
+  }
+
+  createModifiersDisplay() {
+    // Clear existing
+    this.modifiersContainer.removeAll(true);
+
+    if (this.activeModifiers.length === 0) return;
+
+    // Title
+    const title = this.add.text(0, 0, 'MODIFIERS', {
+      fontSize: '12px',
+      fill: '#ff8800',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.modifiersContainer.add(title);
+
+    // List modifiers
+    this.activeModifiers.forEach((modId, i) => {
+      const mod = MAP_MODIFIERS[modId];
+      if (!mod) return;
+
+      const modText = this.add.text(0, 20 + i * 20, mod.name, {
+        fontSize: '11px',
+        fill: mod.color || '#ffffff',
+        fontFamily: 'Courier New',
+      }).setOrigin(0.5);
+      this.modifiersContainer.add(modText);
+    });
+  }
+
+  createFogOfWar() {
+    // Dark overlay with cutout around local player
+    this.fogGraphics = this.add.graphics();
+    this.fogGraphics.setScrollFactor(0);
+    this.fogGraphics.setDepth(100);
+    this.updateFogOfWar();
+  }
+
+  updateFogOfWar() {
+    if (!this.fogGraphics) return;
+
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+    const localPlayer = this.localPlayers[SocketManager.playerId];
+
+    this.fogGraphics.clear();
+    this.fogGraphics.fillStyle(0x000000, 0.7);
+    this.fogGraphics.fillRect(0, 0, W, H);
+
+    if (localPlayer && localPlayer.alive) {
+      // Cut out a circle around the player
+      this.fogGraphics.fillStyle(0x000000, 0);
+      // Use blend mode to create cutout
+      const radius = 200;
+      const gradient = this.add.graphics();
+      gradient.setScrollFactor(0);
+      gradient.setDepth(100);
+
+      // Create radial gradient effect
+      for (let r = radius; r > 0; r -= 5) {
+        const alpha = 0.7 * (r / radius);
+        this.fogGraphics.fillStyle(0x000000, alpha);
+        this.fogGraphics.fillCircle(localPlayer.sprite.x, localPlayer.sprite.y, r);
+      }
+      this.fogGraphics.fillStyle(0x000000, 0);
+      this.fogGraphics.fillCircle(localPlayer.sprite.x, localPlayer.sprite.y, 100);
+    }
+  }
+
+  showPerkSelection(perks, timeRemaining) {
+    this.perkSelectionActive = true;
+    this.selectedPerkId = null;
+    this.perkSelectionContainer.removeAll(true);
+    this.perkSelectionContainer.setVisible(true);
+
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Dark overlay
+    const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.8);
+    this.perkSelectionContainer.add(overlay);
+
+    // Title
+    const title = this.add.text(0, -180, 'CHOOSE A PERK', {
+      fontSize: '32px',
+      fill: '#00ffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.perkSelectionContainer.add(title);
+
+    // Timer
+    this.perkTimerText = this.add.text(0, -140, `Time: ${Math.ceil(timeRemaining / 1000)}s`, {
+      fontSize: '18px',
+      fill: '#ffff00',
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5);
+    this.perkSelectionContainer.add(this.perkTimerText);
+
+    // Perk cards
+    const cardWidth = 180;
+    const cardSpacing = 200;
+    const startX = -(perks.length - 1) * cardSpacing / 2;
+
+    perks.forEach((perkId, i) => {
+      const perk = PERKS[perkId];
+      if (!perk) return;
+
+      const cardX = startX + i * cardSpacing;
+      const card = this.createPerkCard(cardX, 0, perkId, perk, cardWidth);
+      this.perkSelectionContainer.add(card);
+    });
+  }
+
+  createPerkCard(x, y, perkId, perk, width) {
+    const card = this.add.container(x, y);
+
+    // Background
+    const bg = this.add.rectangle(0, 0, width, 220, 0x222244, 1);
+    bg.setStrokeStyle(3, 0x00ffff);
+    bg.setInteractive({ useHandCursor: true });
+    card.add(bg);
+
+    // Icon (colored circle based on perk type)
+    const iconColors = {
+      DAMAGE_BOOST: 0xff4444,
+      HEALTH_BOOST: 0x44ff44,
+      SPEED_BOOST: 0x44ffff,
+      FIRE_RATE_BOOST: 0xffff44,
+      COOLDOWN_REDUCTION: 0x8844ff,
+      VAMPIRISM: 0xff44aa,
+      EXPLOSIVE_KILLS: 0xff8800,
+      SHIELD_ON_WAVE: 0x4488ff,
+      PROJECTILE_SIZE: 0xaaaaaa,
+      ULTIMATE_CHARGE: 0xff00ff,
+    };
+    const icon = this.add.circle(0, -70, 25, iconColors[perkId] || 0xffffff);
+    card.add(icon);
+
+    // Name
+    const nameText = this.add.text(0, -30, perk.name, {
+      fontSize: '14px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+      wordWrap: { width: width - 20 },
+      align: 'center',
+    }).setOrigin(0.5);
+    card.add(nameText);
+
+    // Description
+    const descText = this.add.text(0, 30, perk.description, {
+      fontSize: '11px',
+      fill: '#aaaaaa',
+      fontFamily: 'Courier New',
+      wordWrap: { width: width - 20 },
+      align: 'center',
+    }).setOrigin(0.5);
+    card.add(descText);
+
+    // Click to select
+    bg.on('pointerover', () => {
+      bg.setStrokeStyle(3, 0xffff00);
+    });
+    bg.on('pointerout', () => {
+      bg.setStrokeStyle(3, 0x00ffff);
+    });
+    bg.on('pointerdown', () => {
+      if (!this.selectedPerkId) {
+        this.selectedPerkId = perkId;
+        SocketManager.emit('wave:selectPerk', { perkId });
+        bg.setFillStyle(0x004444);
+        bg.setStrokeStyle(3, 0x00ff00);
+      }
+    });
+
+    return card;
+  }
+
+  hidePerkSelection() {
+    this.perkSelectionActive = false;
+    this.perkSelectionContainer.setVisible(false);
+  }
+
+  showWaveStartAnimation(waveNumber) {
+    const centerX = GAME_CONFIG.WIDTH / 2;
+    const centerY = GAME_CONFIG.HEIGHT / 2;
+
+    const waveAnnounce = this.add
+      .text(centerX, centerY, `WAVE ${waveNumber}`, {
+        fontSize: '64px',
+        fill: '#00ffff',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(400)
+      .setAlpha(0)
+      .setScale(0.5);
+
+    this.tweens.add({
+      targets: waveAnnounce,
+      alpha: 1,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.time.delayedCall(1000, () => {
+          this.tweens.add({
+            targets: waveAnnounce,
+            alpha: 0,
+            scale: 1.5,
+            duration: 300,
+            onComplete: () => waveAnnounce.destroy(),
+          });
+        });
+      },
+    });
+  }
+
+  showGameOver(finalWave, stats) {
+    this.gameOverContainer.removeAll(true);
+    this.gameOverContainer.setVisible(true);
+
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Dark overlay
+    const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.9);
+    this.gameOverContainer.add(overlay);
+
+    // Title
+    const title = this.add.text(0, -150, 'GAME OVER', {
+      fontSize: '48px',
+      fill: '#ff4444',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.gameOverContainer.add(title);
+
+    // Final wave
+    const waveText = this.add.text(0, -80, `Final Wave: ${finalWave}`, {
+      fontSize: '28px',
+      fill: '#00ffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.gameOverContainer.add(waveText);
+
+    // Stats
+    const statsText = this.add.text(0, 0, [
+      `Total Kills: ${stats.totalKills || 0}`,
+      `Perks Collected: ${stats.perksCollected || 0}`,
+      `Time Survived: ${Math.floor((stats.timeSurvived || 0) / 1000)}s`,
+    ].join('\n'), {
+      fontSize: '18px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      align: 'center',
+      lineSpacing: 8,
+    }).setOrigin(0.5);
+    this.gameOverContainer.add(statsText);
+
+    // Return to lobby button
+    const btnBg = this.add.rectangle(0, 120, 200, 50, 0x444488);
+    btnBg.setStrokeStyle(2, 0x00ffff);
+    btnBg.setInteractive({ useHandCursor: true });
+    this.gameOverContainer.add(btnBg);
+
+    const btnText = this.add.text(0, 120, 'RETURN TO LOBBY', {
+      fontSize: '16px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.gameOverContainer.add(btnText);
+
+    btnBg.on('pointerover', () => btnBg.setFillStyle(0x6666aa));
+    btnBg.on('pointerout', () => btnBg.setFillStyle(0x444488));
+    btnBg.on('pointerdown', () => {
+      SoundManager.stopDubstep();
+      this.scene.start('LobbyScene');
+    });
+  }
+
+  updatePlayerPerksDisplay() {
+    if (!this.perksContainer) return;
+
+    this.perksContainer.removeAll(true);
+
+    const localPlayer = this.localPlayers[SocketManager.playerId];
+    if (!localPlayer || !localPlayer.perks) return;
+
+    const perkIds = Object.keys(localPlayer.perks);
+    if (perkIds.length === 0) return;
+
+    // Title
+    const title = this.add.text(0, 0, 'PERKS', {
+      fontSize: '12px',
+      fill: '#00ff88',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    });
+    this.perksContainer.add(title);
+
+    // List perks
+    perkIds.forEach((perkId, i) => {
+      const perk = PERKS[perkId];
+      const stacks = localPlayer.perks[perkId];
+      if (!perk || !stacks) return;
+
+      const perkText = this.add.text(0, 18 + i * 16, `${perk.name} x${stacks}`, {
+        fontSize: '11px',
+        fill: '#88ff88',
+        fontFamily: 'Courier New',
+      });
+      this.perksContainer.add(perkText);
+    });
+  }
+
+  // Wave event handlers
+  onWaveStart(data) {
+    this.waveNumber = data.waveNumber;
+    this.mobsRemaining = data.mobCount;
+
+    if (this.waveText) {
+      this.waveText.setText(`WAVE ${this.waveNumber}`);
+    }
+    if (this.mobsRemainingText) {
+      this.mobsRemainingText.setText(`Mobs: ${this.mobsRemaining}`);
+    }
+
+    this.hidePerkSelection();
+    this.showWaveStartAnimation(this.waveNumber);
+  }
+
+  onWaveComplete(data) {
+    // Just update UI, perk selection comes separately
+    if (this.mobsRemainingText) {
+      this.mobsRemainingText.setText('WAVE COMPLETE!');
+    }
+  }
+
+  onPerkOffer(data) {
+    this.showPerkSelection(data.perks, data.timeRemaining);
+  }
+
+  onPerkSelected(data) {
+    // Another player selected a perk (could show notification)
+    console.log(`Player ${data.playerId} selected perk ${data.perkId}`);
+  }
+
+  onWaveGameOver(data) {
+    this.showGameOver(data.finalWave, data.stats);
+  }
+
+  onArenaGameEnd(data) {
+    if (this.gameEnded) return;
+    this.gameEnded = true;
+
+    this.showArenaResults(data.winner, data.scores);
+  }
+
+  showArenaResults(winner, scores) {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Create game over container
+    this.arenaResultsContainer = this.add.container(W / 2, H / 2);
+    this.arenaResultsContainer.setDepth(500);
+
+    // Dark overlay
+    const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.9);
+    this.arenaResultsContainer.add(overlay);
+
+    // Title
+    const isWinner = winner && winner.id === SocketManager.playerId;
+    const titleText = isWinner ? 'VICTORY!' : 'GAME OVER';
+    const titleColor = isWinner ? '#00ff88' : '#ff4444';
+
+    const title = this.add.text(0, -150, titleText, {
+      fontSize: '48px',
+      fill: titleColor,
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.arenaResultsContainer.add(title);
+
+    // Winner info
+    if (winner) {
+      const winnerText = this.add.text(0, -80, `Winner: ${winner.name} (${winner.score} pts)`, {
+        fontSize: '24px',
+        fill: '#ffff00',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      }).setOrigin(0.5);
+      this.arenaResultsContainer.add(winnerText);
+    }
+
+    // Scoreboard
+    const scoreTitle = this.add.text(0, -30, 'FINAL SCORES', {
+      fontSize: '20px',
+      fill: '#00ffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.arenaResultsContainer.add(scoreTitle);
+
+    scores.forEach((player, i) => {
+      const isMe = player.id === SocketManager.playerId;
+      const color = isMe ? '#00ff88' : '#ffffff';
+      const scoreText = this.add.text(0, 10 + i * 25, `${i + 1}. ${player.name}: ${player.score}`, {
+        fontSize: '16px',
+        fill: color,
+        fontFamily: 'Courier New',
+      }).setOrigin(0.5);
+      this.arenaResultsContainer.add(scoreText);
+    });
+
+    // Buttons
+    const btnY = 120 + Math.min(scores.length * 25, 100);
+
+    // Play Again button
+    const playAgainBg = this.add.rectangle(-110, btnY, 180, 50, 0x448844);
+    playAgainBg.setStrokeStyle(2, 0x00ff88);
+    playAgainBg.setInteractive({ useHandCursor: true });
+    this.arenaResultsContainer.add(playAgainBg);
+
+    const playAgainText = this.add.text(-110, btnY, 'PLAY AGAIN', {
+      fontSize: '16px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.arenaResultsContainer.add(playAgainText);
+
+    playAgainBg.on('pointerover', () => playAgainBg.setFillStyle(0x66aa66));
+    playAgainBg.on('pointerout', () => playAgainBg.setFillStyle(0x448844));
+    playAgainBg.on('pointerdown', () => {
+      SocketManager.emit('game:playAgain');
+    });
+
+    // Return to lobby button
+    const lobbyBg = this.add.rectangle(110, btnY, 180, 50, 0x444488);
+    lobbyBg.setStrokeStyle(2, 0x00ffff);
+    lobbyBg.setInteractive({ useHandCursor: true });
+    this.arenaResultsContainer.add(lobbyBg);
+
+    const lobbyText = this.add.text(110, btnY, 'LOBBY', {
+      fontSize: '16px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.arenaResultsContainer.add(lobbyText);
+
+    lobbyBg.on('pointerover', () => lobbyBg.setFillStyle(0x6666aa));
+    lobbyBg.on('pointerout', () => lobbyBg.setFillStyle(0x444488));
+    lobbyBg.on('pointerdown', () => {
+      SoundManager.stopDubstep();
+      this.scene.start('LobbyScene');
+    });
   }
 
   createControlHints() {
@@ -2373,16 +2994,92 @@ export class GameScene extends Phaser.Scene {
     SocketManager.emit('player:ultimate');
   }
 
+  updateGameTimer() {
+    // Only update for Arena mode with a duration
+    if (this.gameMode !== 'ARENA' || !this.gameDuration) {
+      if (this.gameTimerText) {
+        this.gameTimerText.setVisible(false);
+        this.timerBg.setVisible(false);
+      }
+      return;
+    }
+
+    const elapsed = Date.now() - this.gameStartTime;
+    const remaining = Math.max(0, this.gameDuration - elapsed);
+    const seconds = Math.ceil(remaining / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+
+    const timeStr = `${minutes}:${secs.toString().padStart(2, '0')}`;
+    this.gameTimerText.setText(timeStr);
+
+    // Flash red when low time
+    if (seconds <= 30) {
+      this.gameTimerText.setFill('#ff4444');
+      if (seconds <= 10 && seconds > 0) {
+        this.gameTimerText.setScale(1 + Math.sin(Date.now() / 100) * 0.1);
+      }
+    } else {
+      this.gameTimerText.setFill('#00ffff');
+      this.gameTimerText.setScale(1);
+    }
+  }
+
   update(time, delta) {
     const dt = delta / 1000;
+    const myId = SocketManager.playerId;
 
-    // Interpolate player positions
-    for (const player of Object.values(this.localPlayers)) {
+    // Update game timer (Arena mode)
+    this.updateGameTimer();
+
+    // Update player positions
+    for (const [id, player] of Object.entries(this.localPlayers)) {
       if (!player.alive) continue;
 
-      const lerpFactor = 0.3;
-      player.sprite.x = Phaser.Math.Linear(player.sprite.x, player.serverX, lerpFactor);
-      player.sprite.y = Phaser.Math.Linear(player.sprite.y, player.serverY, lerpFactor);
+      const isLocalPlayer = id === myId;
+
+      if (isLocalPlayer) {
+        // Client-side prediction: move local player immediately based on input
+        const speed = PLAYER_CLASSES[player.classType]?.speed || 200;
+        let vx = 0;
+        let vy = 0;
+
+        if (this.cursors.left.isDown) vx -= 1;
+        if (this.cursors.right.isDown) vx += 1;
+        if (this.cursors.up.isDown) vy -= 1;
+        if (this.cursors.down.isDown) vy += 1;
+
+        // Normalize diagonal movement
+        if (vx !== 0 && vy !== 0) {
+          const mag = Math.sqrt(vx * vx + vy * vy);
+          vx /= mag;
+          vy /= mag;
+        }
+
+        // Apply predicted movement
+        player.sprite.x += vx * speed * dt;
+        player.sprite.y += vy * speed * dt;
+
+        // Clamp to world bounds
+        player.sprite.x = Phaser.Math.Clamp(player.sprite.x, 20, GAME_CONFIG.WIDTH - 20);
+        player.sprite.y = Phaser.Math.Clamp(player.sprite.y, 20, GAME_CONFIG.HEIGHT - 20);
+
+        // Reconcile with server position (soft correction to avoid snapping)
+        const dx = player.serverX - player.sprite.x;
+        const dy = player.serverY - player.sprite.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Only correct if too far from server (tolerance of 50px)
+        if (dist > 50) {
+          player.sprite.x = Phaser.Math.Linear(player.sprite.x, player.serverX, 0.15);
+          player.sprite.y = Phaser.Math.Linear(player.sprite.y, player.serverY, 0.15);
+        }
+      } else {
+        // Remote players: interpolate to server position
+        const lerpFactor = 0.4; // Increased from 0.3 for snappier response
+        player.sprite.x = Phaser.Math.Linear(player.sprite.x, player.serverX, lerpFactor);
+        player.sprite.y = Phaser.Math.Linear(player.sprite.y, player.serverY, lerpFactor);
+      }
 
       // Update UI positions
       player.healthBarBg.setPosition(player.sprite.x, player.sprite.y - 40);
@@ -2409,7 +3106,7 @@ export class GameScene extends Phaser.Scene {
 
     // Interpolate mob positions
     for (const mob of Object.values(this.mobs)) {
-      const lerpFactor = 0.2;
+      const lerpFactor = 0.35; // Increased from 0.2 for snappier response
       mob.container.x = Phaser.Math.Linear(mob.container.x, mob.serverX, lerpFactor);
       mob.container.y = Phaser.Math.Linear(mob.container.y, mob.serverY, lerpFactor);
 
@@ -2425,7 +3122,7 @@ export class GameScene extends Phaser.Scene {
 
     // Remove all socket listeners
     const events = [
-      'game:state', 'bullet:spawn', 'bullet:destroy', 'bullet:ricochet',
+      'game:state', 'game:start', 'game:end', 'bullet:spawn', 'bullet:destroy', 'bullet:ricochet',
       'grenade:spawn', 'grenade:explode', 'player:hit', 'player:death',
       'player:respawn', 'player:heal', 'player:dash', 'player:dodge', 'player:bounce',
       'player:chainsaw', 'killStreak', 'powerup:spawn', 'powerup:collected',
@@ -2434,6 +3131,7 @@ export class GameScene extends Phaser.Scene {
       'healZone:spawn', 'healZone:destroy', 'ultimate:activate',
       'carpetBomb:explosion', 'lifeSwap',
       'mob:spawn', 'mob:hit', 'mob:death', 'mob:attack',
+      'wave:start', 'wave:complete', 'wave:perkOffer', 'wave:perkSelected', 'wave:gameOver',
     ];
 
     events.forEach(event => SocketManager.off(event));
