@@ -22,12 +22,9 @@
 
 | Key | Action |
 |-----|--------|
-| Arrow Up | Dodge upward |
-| Arrow Down | Dodge downward |
-| Arrow Left | Dodge left |
-| Arrow Right | Dodge right |
+| SPACE + WASD | Dodge in movement direction |
 
-Dodging provides brief invincibility frames.
+Hold SPACE while moving to dodge. Provides brief invincibility frames.
 
 ## Other
 

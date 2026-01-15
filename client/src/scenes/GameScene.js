@@ -55,13 +55,8 @@ export class GameScene extends Phaser.Scene {
       ultimate: Phaser.Input.Keyboard.KeyCodes.Q,
     });
 
-    // Arrow keys for dodge
-    this.dodgeKeys = this.input.keyboard.addKeys({
-      up: Phaser.Input.Keyboard.KeyCodes.UP,
-      down: Phaser.Input.Keyboard.KeyCodes.DOWN,
-      left: Phaser.Input.Keyboard.KeyCodes.LEFT,
-      right: Phaser.Input.Keyboard.KeyCodes.RIGHT,
-    });
+    // Space key for dodge
+    this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
 
     // Track dodge cooldown locally for UI feedback
     this.lastDodgeTime = 0;
@@ -2144,7 +2139,7 @@ export class GameScene extends Phaser.Scene {
 
     // Instructions
     this.add
-      .text(centerX, H - 20, 'WASD: Mover | Click: Disparar | Flechas: Esquivar | SHIFT: Habilidad | Q: Ultimate | TAB: Puntajes', {
+      .text(centerX, H - 20, 'WASD: Mover | Click: Disparar | SPACE: Esquivar | SHIFT: Habilidad | Q: Ultimate | TAB: Puntajes', {
         fontSize: '14px',
         fill: '#666666',
         fontFamily: 'Courier New',
@@ -2177,7 +2172,7 @@ export class GameScene extends Phaser.Scene {
       'Click - Shoot',
       'SHIFT - Ability',
       'Q - Ultimate',
-      'Arrows - Dodge',
+      'SPACE - Dodge',
     ];
 
     const hintsContainer = this.add.container(15, GAME_CONFIG.HEIGHT - 140);
@@ -2320,25 +2315,28 @@ export class GameScene extends Phaser.Scene {
       pointer.worldY
     );
 
-    // Check if any arrow key is pressed for dodge
-    const dodgeUp = this.dodgeKeys.up.isDown;
-    const dodgeDown = this.dodgeKeys.down.isDown;
-    const dodgeLeft = this.dodgeKeys.left.isDown;
-    const dodgeRight = this.dodgeKeys.right.isDown;
-    const wantsToDodge = dodgeUp || dodgeDown || dodgeLeft || dodgeRight;
+    // Movement keys
+    const moveUp = this.cursors.up.isDown;
+    const moveDown = this.cursors.down.isDown;
+    const moveLeft = this.cursors.left.isDown;
+    const moveRight = this.cursors.right.isDown;
+    const isMoving = moveUp || moveDown || moveLeft || moveRight;
+
+    // Space + movement direction = dodge
+    const wantsToDodge = this.spaceKey.isDown && isMoving;
 
     const input = {
-      up: this.cursors.up.isDown,
-      down: this.cursors.down.isDown,
-      left: this.cursors.left.isDown,
-      right: this.cursors.right.isDown,
+      up: moveUp,
+      down: moveDown,
+      left: moveLeft,
+      right: moveRight,
       angle,
       dodge: wantsToDodge && (Date.now() - this.lastDodgeTime >= this.dodgeCooldown),
       dodgeDirection: wantsToDodge ? {
-        up: dodgeUp,
-        down: dodgeDown,
-        left: dodgeLeft,
-        right: dodgeRight,
+        up: moveUp,
+        down: moveDown,
+        left: moveLeft,
+        right: moveRight,
       } : null,
     };
 
