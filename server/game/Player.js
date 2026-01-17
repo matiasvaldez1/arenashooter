@@ -268,11 +268,11 @@ export class Player {
     // Update angle
     this.angle = this.input.angle;
 
-    // Charge ultimate from movement
-    if (dx !== 0 || dy !== 0) {
-      const chargeRate = this.getEffectiveUltimateChargeRate();
-      this.ultimateCharge = Math.min(100, this.ultimateCharge + deltaTime * 2 * chargeRate);
-    }
+    // Charge ultimate (passive + bonus from movement)
+    const chargeRate = this.getEffectiveUltimateChargeRate();
+    const baseCharge = deltaTime * 3 * chargeRate;
+    const moveBonus = (dx !== 0 || dy !== 0) ? deltaTime * 3 * chargeRate : 0;
+    this.ultimateCharge = Math.min(100, this.ultimateCharge + baseCharge + moveBonus);
   }
 
   takeDamage(amount, attackerId) {
