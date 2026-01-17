@@ -858,6 +858,202 @@ export class GameScene extends Phaser.Scene {
       container.sprite = body;
       container.setScale(data.scale || 2.2);
 
+    } else if (data.type === 'SASAENG') {
+      // === SASAENG: Obsessed fan with phone/camera ===
+      const body = this.add.rectangle(0, 5, 18, 22, 0xff69b4); // Pink hoodie
+      body.setStrokeStyle(1, 0xcc5599);
+      const head = this.add.circle(0, -12, 9, 0xf5d0c5);
+      head.setStrokeStyle(1, 0xcc9966);
+      // Hair - long black
+      this.add.ellipse(0, -15, 22, 18, 0x1a1a1a);
+      // Phone held up
+      const phone = this.add.rectangle(12, -5, 8, 14, 0x222222);
+      phone.setStrokeStyle(1, 0x444444);
+      this.add.rectangle(12, -5, 6, 10, 0x4488ff); // Screen glow
+      // Heart eyes (obsessed)
+      this.add.text(-4, -14, '♥', { fontSize: '6px', fill: '#ff0066' });
+      this.add.text(2, -14, '♥', { fontSize: '6px', fill: '#ff0066' });
+      // Legs
+      this.add.rectangle(-4, 22, 6, 12, 0x333333);
+      this.add.rectangle(4, 22, 6, 12, 0x333333);
+      container.add([body, head, phone]);
+      container.sprite = body;
+
+    } else if (data.type === 'ANTI_FAN') {
+      // === ANTI-FAN: Dark clothes, throwing objects ===
+      const body = this.add.rectangle(0, 5, 20, 24, 0x222222); // Black hoodie
+      body.setStrokeStyle(1, 0x111111);
+      const head = this.add.circle(0, -14, 10, 0xf5d0c5);
+      // Hood up
+      this.add.arc(0, -14, 14, Phaser.Math.DegToRad(200), Phaser.Math.DegToRad(340), false, 0x222222);
+      // Angry expression
+      this.add.text(-4, -16, '>', { fontSize: '6px', fill: '#ff0000' });
+      this.add.text(2, -16, '<', { fontSize: '6px', fill: '#ff0000' });
+      // Arm throwing
+      this.add.rectangle(14, 0, 6, 18, 0xf5d0c5).setRotation(0.5);
+      // Object being thrown
+      this.add.circle(22, -8, 5, 0x666666);
+      this.add.rectangle(-4, 24, 7, 14, 0x222222);
+      this.add.rectangle(4, 24, 7, 14, 0x222222);
+      container.add([body, head]);
+      container.sprite = body;
+
+    } else if (data.type === 'PAPARAZZI') {
+      // === PAPARAZZI: Camera with flash ===
+      const body = this.add.rectangle(0, 5, 18, 22, 0x444444); // Dark vest
+      body.setStrokeStyle(1, 0x333333);
+      const head = this.add.circle(0, -12, 9, 0xf5d0c5);
+      // Cap
+      this.add.rectangle(0, -20, 20, 5, 0x222222);
+      this.add.rectangle(8, -18, 12, 3, 0x222222);
+      // Big camera
+      const camera = this.add.rectangle(0, 0, 25, 18, 0x1a1a1a);
+      camera.setStrokeStyle(2, 0x333333);
+      // Lens
+      this.add.circle(8, 0, 8, 0x222222);
+      this.add.circle(8, 0, 5, 0x4466aa);
+      // Flash
+      const flash = this.add.rectangle(-10, -8, 10, 6, 0xffff00, 0.8);
+      this.tweens.add({ targets: flash, alpha: 0.2, duration: 300, yoyo: true, repeat: -1 });
+      this.add.rectangle(-4, 22, 6, 12, 0x333333);
+      this.add.rectangle(4, 22, 6, 12, 0x333333);
+      container.add([body, head, camera, flash]);
+      container.sprite = body;
+
+    } else if (data.type === 'TRAINEE') {
+      // === TRAINEE: Young person in practice clothes ===
+      const body = this.add.rectangle(0, 5, 16, 20, 0xaaaaaa); // Gray practice shirt
+      body.setStrokeStyle(1, 0x888888);
+      const head = this.add.circle(0, -10, 8, 0xf5d0c5);
+      // Simple hair
+      this.add.arc(0, -14, 10, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false, 0x2a1810);
+      // Sweat drops
+      this.add.circle(10, -8, 2, 0x88ccff, 0.7);
+      // Practice pants
+      this.add.rectangle(-3, 20, 5, 12, 0x333333);
+      this.add.rectangle(3, 20, 5, 12, 0x333333);
+      // Sneakers
+      this.add.rectangle(-3, 28, 6, 4, 0xffffff);
+      this.add.rectangle(3, 28, 6, 4, 0xffffff);
+      container.add([body, head]);
+      container.sprite = body;
+
+    } else if (data.type === 'FAN_MOB') {
+      // === FAN MOB: Excited fan with lightstick ===
+      const body = this.add.rectangle(0, 5, 18, 22, 0x9b59b6); // Purple fan shirt
+      body.setStrokeStyle(1, 0x7a4895);
+      const head = this.add.circle(0, -12, 9, 0xf5d0c5);
+      // Excited hair
+      this.add.ellipse(0, -18, 20, 12, 0x2a1810);
+      // Lightstick!
+      const stick = this.add.rectangle(14, -15, 4, 25, 0xffffff);
+      const light = this.add.circle(14, -30, 8, 0xff69b4);
+      this.tweens.add({ targets: light, fillColor: 0x9b59b6, duration: 500, yoyo: true, repeat: -1 });
+      // Open mouth cheering
+      this.add.ellipse(0, -8, 6, 4, 0x111111);
+      this.add.rectangle(-4, 22, 6, 12, 0x333333);
+      this.add.rectangle(4, 22, 6, 12, 0x333333);
+      container.add([body, head, stick, light]);
+      container.sprite = body;
+
+    } else if (data.type === 'MANAGER') {
+      // === MANAGER: Suited person with earpiece ===
+      const body = this.add.rectangle(0, 5, 22, 26, 0x1a1a1a); // Black suit
+      body.setStrokeStyle(2, 0x333333);
+      const head = this.add.circle(0, -16, 11, 0xf5d0c5);
+      // Slicked hair
+      this.add.arc(0, -22, 12, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false, 0x1a1a1a);
+      // Sunglasses
+      this.add.rectangle(-5, -16, 8, 4, 0x111111);
+      this.add.rectangle(5, -16, 8, 4, 0x111111);
+      // Earpiece
+      this.add.circle(12, -14, 3, 0x333333);
+      this.add.rectangle(12, -10, 2, 8, 0x333333);
+      // Tie
+      this.add.rectangle(0, 0, 4, 15, 0x880000);
+      // Legs
+      this.add.rectangle(-5, 26, 8, 16, 0x1a1a1a);
+      this.add.rectangle(5, 26, 8, 16, 0x1a1a1a);
+      container.add([body, head]);
+      container.sprite = body;
+
+    } else if (data.isBoss && data.type === 'MEGA_FAN') {
+      // === MEGA FAN BOSS: Giant obsessed fan with huge lightstick ===
+      const body = this.add.rectangle(0, 5, 50, 60, 0xff69b4);
+      body.setStrokeStyle(4, 0xcc5599);
+      const head = this.add.circle(0, -40, 25, 0xf5d0c5);
+      head.setStrokeStyle(2, 0xcc9966);
+      // Crazy hair
+      this.add.ellipse(0, -50, 55, 30, 0x1a1a1a);
+      // Heart eyes
+      const eye1 = this.add.text(-10, -45, '♥', { fontSize: '16px', fill: '#ff0066' });
+      const eye2 = this.add.text(5, -45, '♥', { fontSize: '16px', fill: '#ff0066' });
+      this.tweens.add({ targets: [eye1, eye2], scale: 1.3, duration: 300, yoyo: true, repeat: -1 });
+      // GIANT lightstick
+      const giantStick = this.add.rectangle(45, -20, 10, 80, 0xffffff);
+      const giantLight = this.add.star(45, -65, 5, 15, 30, 0xff69b4);
+      this.tweens.add({ targets: giantLight, fillColor: 0x9b59b6, rotation: Math.PI, duration: 500, yoyo: true, repeat: -1 });
+      // Fan banner
+      this.add.rectangle(-40, 0, 30, 50, 0x9b59b6);
+      this.add.text(-40, 0, '♥', { fontSize: '20px', fill: '#ffffff' }).setOrigin(0.5);
+      container.add([body, head, giantStick, giantLight]);
+      container.sprite = body;
+      container.setScale(data.scale || 2.5);
+
+    } else if (data.isBoss && data.type === 'DISPATCH') {
+      // === DISPATCH BOSS: Reporter with camera drones ===
+      const body = this.add.rectangle(0, 5, 45, 55, 0xff6600);
+      body.setStrokeStyle(4, 0xcc5500);
+      const head = this.add.circle(0, -35, 22, 0xf5d0c5);
+      // Reporter hat
+      this.add.rectangle(0, -55, 50, 10, 0x333333);
+      // Press badge
+      this.add.rectangle(0, 10, 30, 15, 0xffffff);
+      this.add.text(0, 10, 'PRESS', { fontSize: '8px', fill: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
+      // Huge camera
+      const bigCam = this.add.rectangle(35, 0, 40, 30, 0x222222);
+      this.add.circle(50, 0, 12, 0x4466aa);
+      // Drone 1
+      const drone1 = this.add.rectangle(-40, -50, 20, 10, 0x444444);
+      this.add.rectangle(-40, -55, 30, 3, 0x666666);
+      this.tweens.add({ targets: drone1, y: -40, duration: 800, yoyo: true, repeat: -1 });
+      // Drone 2
+      const drone2 = this.add.rectangle(50, -60, 20, 10, 0x444444);
+      this.add.rectangle(50, -65, 30, 3, 0x666666);
+      this.tweens.add({ targets: drone2, y: -50, duration: 600, yoyo: true, repeat: -1 });
+      container.add([body, head, bigCam, drone1, drone2]);
+      container.sprite = body;
+      container.setScale(data.scale || 2.0);
+
+    } else if (data.isBoss && data.type === 'EVIL_CEO') {
+      // === EVIL CEO BOSS: Corporate villain in expensive suit ===
+      const body = this.add.rectangle(0, 5, 55, 65, 0x1a1a1a);
+      body.setStrokeStyle(5, 0x333333);
+      const head = this.add.circle(0, -40, 24, 0xf5d0c5);
+      head.setStrokeStyle(2, 0xcc9966);
+      // Slicked back hair
+      this.add.arc(0, -50, 26, Phaser.Math.DegToRad(180), Phaser.Math.DegToRad(360), false, 0x1a1a1a);
+      // Evil glasses
+      this.add.rectangle(-10, -42, 14, 8, 0x111111);
+      this.add.rectangle(10, -42, 14, 8, 0x111111);
+      this.add.rectangle(0, -42, 8, 2, 0x111111);
+      // Evil smirk
+      this.add.arc(0, -32, 8, Phaser.Math.DegToRad(0), Phaser.Math.DegToRad(180), false, 0x111111);
+      // Gold tie
+      this.add.rectangle(0, 0, 8, 30, 0xffd700);
+      // Money bags
+      const bag1 = this.add.circle(-40, 20, 15, 0x228B22);
+      this.add.text(-40, 20, '$', { fontSize: '14px', fill: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+      const bag2 = this.add.circle(40, 20, 15, 0x228B22);
+      this.add.text(40, 20, '$', { fontSize: '14px', fill: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+      // Contract papers floating
+      const paper1 = this.add.rectangle(-30, -60, 15, 20, 0xffffff);
+      const paper2 = this.add.rectangle(30, -55, 15, 20, 0xffffff);
+      this.tweens.add({ targets: [paper1, paper2], y: '-=10', rotation: 0.2, duration: 1000, yoyo: true, repeat: -1 });
+      container.add([body, head, bag1, bag2]);
+      container.sprite = body;
+      container.setScale(data.scale || 2.2);
+
     } else {
       // Default fallback
       const sprite = this.add.circle(0, 0, data.isBoss ? 40 : 20, Phaser.Display.Color.HexStringToColor(mobConfig.color).color);
