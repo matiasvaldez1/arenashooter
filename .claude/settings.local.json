@@ -1,37 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install)",
-      "Bash(npm run dev:*)",
-      "Bash(timeout:*)",
-      "Bash(netstat:*)",
-      "Bash(taskkill:*)",
-      "Bash(tasklist:*)",
-      "Bash(findstr:*)",
-      "WebFetch(domain:dynamic-media-cdn.tripadvisor.com)",
-      "Bash(dir \"C:\\\\Users\\\\matia\\\\OneDrive\\\\Escritorio\\\\sandbox\\\\multiplayer8bitgame\" /s)",
-      "Bash(dir /s /b)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
       "Bash(ls:*)",
+      "Bash(dir:*)",
       "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(cmd //c \"taskkill /PID 18488 /F\")",
-      "Bash(cmd //c \"netstat -ano | findstr :3001\")",
-      "Bash(dir /s \"C:\\\\Users\\\\Matias\\\\Desktop\\\\proyectos\\\\arenashooter\\\\client\\\\src\\\\*.js\")",
-      "Bash(dir /s \"C:\\\\Users\\\\Matias\\\\Desktop\\\\proyectos\\\\arenashooter\\\\server\\\\*.js\")",
-      "Bash(dir /s \"C:\\\\Users\\\\Matias\\\\Desktop\\\\proyectos\\\\arenashooter\\\\shared\\\\*.js\")",
-      "Bash(dir /b \"C:\\\\Users\\\\Matias\\\\Desktop\\\\proyectos\\\\arenashooter\")",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" status)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" diff --stat)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" log --oneline -5)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" add CLAUDE.md docs/TROUBLESHOOTING.md .claude/agents/ client/src/scenes/BootScene.js client/src/scenes/GameScene.js client/src/network/SocketManager.js client/src/utils/SoundManager.js server/index.js)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" rm:*)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" add IMPLEMENTATION_PLAN.md)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" status --short)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" commit -m \"cleanup comments, add live-debugger agent, remove outdated files\")",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" diff client/src/scenes/LobbyScene.js)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" diff server/game/Room.js)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" add -A)",
-      "Bash(git -C \"C:/Users/Matias/Desktop/proyectos/arenashooter\" commit -m \"refactor lobby to step-by-step wizard, add time remaining to game state\")"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(rm *)",
+      "Bash(git -C * status*)",
+      "Bash(git -C * diff*)",
+      "Bash(git -C * log*)",
+      "Bash(git -C * branch*)",
+      "Bash(git -C * show*)",
+      "Bash(git -C * stash*)",
+      "Bash(git -C * add*)"
+    ],
+    "deny": [
+      "Bash(git * push*)",
+      "Bash(git * commit*)"
     ]
   }
 }
