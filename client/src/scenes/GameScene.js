@@ -3747,8 +3747,7 @@ export class GameScene extends Phaser.Scene {
       if (!this.selectedPerkId) {
         this.selectedPerkId = perkId;
         SocketManager.selectPerk(perkId);
-        bg.setFillStyle(0x004444);
-        bg.setStrokeStyle(3, 0x00ff00);
+        this.hidePerkSelection();
       }
     });
   }

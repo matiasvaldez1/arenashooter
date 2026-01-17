@@ -72,6 +72,20 @@ io.on('connection', (socket) => {
 
   socket.on('room:join', ({ roomCode, playerName }, callback) => {
     try {
+      // If already in a room, leave it first
+      if (socket.roomCode) {
+        const oldRoom = rooms.get(socket.roomCode);
+        if (oldRoom) {
+          oldRoom.removePlayer(socket.id);
+          socket.leave(socket.roomCode);
+          io.to(socket.roomCode).emit('room:playerLeft', {
+            playerId: socket.id,
+            players: oldRoom.getPlayersInfo(),
+          });
+        }
+        socket.roomCode = null;
+      }
+
       const room = rooms.get(roomCode);
 
       if (!room) {

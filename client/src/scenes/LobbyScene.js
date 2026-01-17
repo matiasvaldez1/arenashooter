@@ -559,12 +559,14 @@ export class LobbyScene extends Phaser.Scene {
     // Players list (small, right side)
     this.createMiniPlayersList(container);
 
-    // Back button
-    const backBtn = this.createBackButton(this.centerX - 120, 620, () => this.goToStep(STEPS.MAP));
-    container.add(backBtn);
+    // Back button (only for host - non-hosts can't access MODE/MAP steps)
+    if (this.isHost) {
+      const backBtn = this.createBackButton(this.centerX - 120, 620, () => this.goToStep(STEPS.MAP));
+      container.add(backBtn);
+    }
 
     // Next button
-    const nextBtn = this.createNextButton(this.centerX + 120, 620, () => this.goToStep(STEPS.READY));
+    const nextBtn = this.createNextButton(this.isHost ? this.centerX + 120 : this.centerX, 620, () => this.goToStep(STEPS.READY));
     container.add(nextBtn);
   }
 
