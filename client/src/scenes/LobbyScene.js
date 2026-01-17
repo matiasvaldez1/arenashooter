@@ -1,7 +1,7 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
 import { GAME_CONFIG, GAME_MODES, getCharacterList, getCharacter, getActiveTheme } from '../../../shared/constants.js';
-import { MAPS } from '../../../shared/maps.js';
+import { MAPS, MOBS } from '../../../shared/maps.js';
 import { t, getLanguage } from '../utils/i18n.js';
 import { COLORS, fontStyle } from '../config/theme.js';
 
@@ -25,10 +25,11 @@ export class LobbyScene extends Phaser.Scene {
     this.currentStep = STEPS.GAME_MODE;
     const defaultClass = getCharacterList()[0] || 'MESSI';
     this.selectedClass = defaultClass;
-    this.selectedMap = 'ARENA';
-    this.selectedGameMode = 'ARENA';
+    this.selectedMap = data.selectedMap || 'ARENA';
+    this.selectedGameMode = data.gameMode || 'ARENA';
     this.players = [];
     this.isReady = false;
+    this.returnedFromGame = data.returnedFromGame || false;
 
     // Containers for each step
     this.stepContainers = {};
@@ -56,11 +57,15 @@ export class LobbyScene extends Phaser.Scene {
     this.createCharacterStep();
     this.createReadyStep();
 
-    // Show first step
-    this.showStep(STEPS.GAME_MODE);
-
-    // Setup socket events
+    // Setup socket events first so we can receive step sync
     this.setupSocketEvents();
+
+    // Non-hosts go directly to CHARACTER step (they can't interact with MODE/MAP)
+    if (this.isHost) {
+      this.showStep(STEPS.GAME_MODE);
+    } else {
+      this.showStep(STEPS.CHARACTER);
+    }
 
     // Select default class
     SocketManager.selectClass(this.selectedClass);
@@ -442,16 +447,11 @@ export class LobbyScene extends Phaser.Scene {
     const hasEnemies = map.hasMobs;
     const descLines = [];
     if (hasEnemies && map.mobType) {
-      const mobNames = {
-        'protester': 'Protesters',
-        'cacerolero': 'Caceroleros',
-        'hincha': 'Football Fans',
-        'bear': 'Bears',
-        'golfCart': 'Golf Carts',
-      };
-      descLines.push(`Enemies: ${mobNames[map.mobType] || map.mobType}`);
+      const mobConfig = MOBS[map.mobType];
+      const mobName = mobConfig?.name || map.mobType;
+      descLines.push(`${t('lobby.enemies')} ${mobName}`);
     } else {
-      descLines.push('No enemies');
+      descLines.push(t('lobby.noEnemies'));
     }
 
     const descText = this.add.text(0, -5, descLines.join('\n'), {
@@ -595,11 +595,12 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Quick stats
-    const quickStats = `HP:${stats.health} SPD:${stats.speed}`;
+    const quickStats = `${t('stats.hp')}:${stats.health} ${t('stats.spd')}:${stats.speed}`;
     const quickStatsText = this.add.text(0, 55, quickStats, fontStyle('small', COLORS.textMuted)).setOrigin(0.5);
 
-    // Ultimate name
-    const ultimateName = stats.ultimate?.name || 'Ultimate';
+    // Ultimate name - use translation if available
+    const ultNameKey = `ult.${stats.ultimate?.id?.toLowerCase() || stats.ultimate?.name?.toLowerCase() || ''}`;
+    const ultimateName = t(ultNameKey) !== ultNameKey ? t(ultNameKey) : (stats.ultimate?.name || t('stats.ultimate'));
     const ultText = this.add.text(0, 75, `[Q] ${ultimateName}`, fontStyle('small', COLORS.warning)).setOrigin(0.5);
 
     // Selection indicator
@@ -664,20 +665,28 @@ export class LobbyScene extends Phaser.Scene {
 
     // Stats line 1
     const statsLine1 = this.add.text(0, -22,
-      `HEALTH: ${stats.health}  |  SPEED: ${stats.speed}  |  DAMAGE: ${stats.damage}  |  FIRE RATE: ${stats.fireRate}/s`,
+      `${t('stats.health')}: ${stats.health}  |  ${t('stats.speed')}: ${stats.speed}  |  ${t('stats.damage')}: ${stats.damage}  |  ${t('stats.fireRate')}: ${stats.fireRate}/s`,
       { fontSize: '15px', fill: '#ffffff', fontFamily: 'Courier New' }
     ).setOrigin(0.5);
 
-    // Description
-    const description = stats.description || '';
+    // Description - use translation if available
+    const descKey = `char.${classType.toLowerCase()}.desc`;
+    const description = t(descKey) !== descKey ? t(descKey) : (stats.description || '');
     const statsLine2 = this.add.text(0, 2, description, {
       fontSize: '14px',
       fill: '#aaaaaa',
       fontFamily: 'Courier New',
     }).setOrigin(0.5);
 
-    // Ultimate info
-    const ultInfo = ultimate ? `[Q] ULTIMATE: ${ultimate.name} - ${ultimate.description}` : '';
+    // Ultimate info - use translation if available
+    let ultInfo = '';
+    if (ultimate) {
+      const ultNameKey = `ult.${ultimate.id?.toLowerCase() || ultimate.name?.toLowerCase()}`;
+      const ultDescKey = `${ultNameKey}Desc`;
+      const ultName = t(ultNameKey) !== ultNameKey ? t(ultNameKey) : ultimate.name;
+      const ultDesc = t(ultDescKey) !== ultDescKey ? t(ultDescKey) : ultimate.description;
+      ultInfo = `[Q] ${t('stats.ultimate')}: ${ultName} - ${ultDesc}`;
+    }
     const statsLine3 = this.add.text(0, 26, ultInfo, {
       fontSize: '13px',
       fill: color,
@@ -1049,9 +1058,9 @@ export class LobbyScene extends Phaser.Scene {
       this.updatePlayersList(data.players);
       if (data.selectedMap) this.updateSelectedMap(data.selectedMap);
       if (data.gameMode) this.updateSelectedGameMode(data.gameMode);
-      // Sync lobby step for new players joining
-      if (!this.isHost && data.lobbyStep !== undefined && data.lobbyStep !== this.currentStep) {
-        this.showStep(data.lobbyStep);
+      // Non-hosts sync to READY step if host is already there
+      if (!this.isHost && data.lobbyStep === STEPS.READY && this.currentStep !== STEPS.READY) {
+        this.showStep(STEPS.READY);
       }
     });
 
@@ -1068,8 +1077,9 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     SocketManager.on('room:stepChanged', (data) => {
-      // Host changed step, sync non-host players
-      if (!this.isHost && data.step !== undefined) {
+      // Host changed step, sync non-host players only for READY step
+      // (non-hosts can't interact with MODE/MAP, so don't pull them back)
+      if (!this.isHost && data.step !== undefined && data.step === STEPS.READY) {
         this.showStep(data.step);
       }
     });

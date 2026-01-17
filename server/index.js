@@ -232,6 +232,23 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('room:returnToLobby', () => {
+    try {
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room) {
+        room.returnToLobby();
+        io.to(socket.roomCode).emit('room:backToLobby', {
+          players: room.getPlayersInfo(),
+          selectedMap: room.getSelectedMap(),
+          gameMode: room.gameMode,
+        });
+      }
+    } catch (error) {
+      console.error('Error returning to lobby:', error);
+    }
+  });
+
   socket.on('player:input', (input) => {
     try {
       if (!socket.roomCode) return;

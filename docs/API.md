@@ -13,6 +13,9 @@ Connect to: `http://localhost:3001`
 | `room:create` | - | Create new room, callback returns `{success, roomCode}` |
 | `room:join` | `{roomCode, playerName}` | Join existing room, callback returns `{success, playerId}` |
 | `room:selectMap` | `{mapId}` | Host selects map (`ARENA`, `CONGRESO`, etc.) |
+| `room:selectGameMode` | `{mode}` | Host selects game mode (`ARENA`, `WAVE_SURVIVAL`, `INFINITE_HORDE`) |
+| `room:changeStep` | `{step}` | Host changes lobby step (0-3) |
+| `room:returnToLobby` | - | Return all players to lobby, preserving room |
 
 ### Player Actions
 
@@ -22,6 +25,9 @@ Connect to: `http://localhost:3001`
 | `player:ready` | `{ready}` | Toggle ready status (boolean) |
 | `player:input` | `{up, down, left, right, angle, ability, ultimate}` | Movement and action input |
 | `player:shoot` | `{angle}` | Fire weapon at angle (radians) |
+| `player:ultimate` | - | Activate ultimate ability |
+| `wave:selectPerk` | `{perkId}` | Select perk during wave intermission |
+| `game:playAgain` | - | Restart game with same settings |
 
 ## Server -> Client Events
 
@@ -29,17 +35,21 @@ Connect to: `http://localhost:3001`
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `room:playerJoined` | `{playerId, playerName, players, selectedMap}` | Player joined room |
+| `room:playerJoined` | `{playerId, playerName, players, selectedMap, gameMode, lobbyStep}` | Player joined room |
 | `room:playerLeft` | `{playerId, players}` | Player left room |
 | `room:playerUpdated` | `{players}` | Player info changed (class, ready status) |
 | `room:mapChanged` | `{mapId}` | Map selection changed |
+| `room:gameModeChanged` | `{mode}` | Game mode selection changed |
+| `room:stepChanged` | `{step}` | Lobby step changed (synced to non-hosts) |
+| `room:backToLobby` | `{players, selectedMap, gameMode}` | All players returned to lobby |
 
 ### Game State
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `game:start` | `{players, mapId}` | Game starting |
-| `game:state` | `{players, bullets, grenades, powerups, turrets, barriers, barrels, healZones, mobs}` | Full game state (20Hz) |
+| `game:start` | `{players, mapId, gameMode, modifiers, gameDuration}` | Game starting |
+| `game:state` | `{players, bullets, grenades, powerups, turrets, barriers, barrels, healZones, mobs, timeRemaining, activeBoss}` | Full game state (20Hz) |
+| `game:end` | `{reason, winner, scores, finalKill}` | Arena game ended (time limit reached) |
 
 ### Combat Events
 
@@ -97,9 +107,32 @@ Connect to: `http://localhost:3001`
 
 | Event | Payload | Description |
 |-------|---------|-------------|
-| `ultimate:activate` | `{playerId, type}` | Ultimate ability used |
-| `carpetBomb:explosion` | `{x, y}` | Carpet bomb hit (Biden) |
-| `lifeSwap` | `{casterId, targetId, casterHealth, targetHealth}` | Life swap (if implemented) |
+| `player:ultimate` | `{playerId, type}` | Ultimate ability activated |
+| `ultimate:dollarization` | `{playerId, duration}` | Dollarization ultimate (Milei) |
+| `ultimate:nuclearStrike` | `{playerId}` | Nuclear strike (Putin) |
+| `ultimate:fancy` | `{playerId, duration}` | Fancy hypnotize (Momo) |
+| `ultimate:sonicWave` | `{playerId, wave}` | Sonic wave (Haewon) |
+| `ultimate:money` | `{playerId, duration}` | Money damage aura (Lisa) |
+| `ultimate:blackMamba` | `{playerId, duration}` | Black Mamba freeze (Winter) |
+
+### Wave Survival Events
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `wave:start` | `{waveNumber, mobCount, modifiers, isBossWave, gameMode}` | Wave starting |
+| `wave:complete` | `{waveNumber, mobsKilled, totalMobsKilled}` | Wave completed |
+| `wave:perkOffer` | `{perks, timeRemaining}` | Perk selection offered |
+| `wave:perkSelected` | `{playerId, perkId, playerPerks}` | Player selected perk |
+| `wave:gameOver` | `{finalWave, totalMobsKilled, scores, finalKill}` | Wave survival ended |
+
+### Boss Events (Infinite Horde)
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `boss:spawn` | `{id, type, x, y, health, maxHealth, bossConfig}` | Boss spawned |
+| `boss:death` | `{id, killerId, bossType, bossesKilled}` | Boss killed |
+| `boss:charge` | `{id, targetX, targetY}` | Boss charging attack |
+| `boss:shoot` | `{id, angle}` | Boss fired projectile |
 
 ## Payload Types
 

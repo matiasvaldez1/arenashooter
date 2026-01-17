@@ -1932,4 +1932,38 @@ export class Room {
 
     console.log(`Room ${this.code} reset for new game`);
   }
+
+  returnToLobby() {
+    this.stopGame();
+
+    this.gameStarted = false;
+    this.gameEnded = false;
+    this.lobbyStep = 0;
+
+    this.bullets = [];
+    this.grenades = [];
+    this.powerups = [];
+    this.turrets = [];
+    this.barriers = [];
+    this.barrels = [];
+    this.healZones = [];
+    this.hazards = [];
+    this.mobs = [];
+
+    this.waveNumber = 0;
+    this.waveState = 'idle';
+    this.pendingPerkOffers.clear();
+    this.perkSelections.clear();
+    this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+    this.activeBoss = null;
+    this.bossesKilled = 0;
+    this.lastKill = null;
+
+    for (const player of this.players.values()) {
+      player.reset();
+      player.ready = false;
+    }
+
+    console.log(`Room ${this.code} returned to lobby`);
+  }
 }

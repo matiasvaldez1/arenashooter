@@ -538,6 +538,27 @@ export class Player {
     return this.perks[perkId] || 0;
   }
 
+  reset() {
+    this.score = 0;
+    this.killStreak = 0;
+    this.lastKillTime = 0;
+    this.ultimateCharge = 0;
+    this.ultimateActive = false;
+    this.ultimateEndTime = 0;
+    this.alive = false;
+    this.health = this.maxHealth;
+    this.activePowerups = {};
+    this.shieldHits = 0;
+    this.ricochetCount = 0;
+    this.perks = {};
+    this.spawnProtection = false;
+    this.spawnProtectionEnd = 0;
+    this.invisible = false;
+    this.mechMode = false;
+    this.rapidFireActive = false;
+    this.damageAuraActive = false;
+  }
+
   getState() {
     return {
       id: this.id,

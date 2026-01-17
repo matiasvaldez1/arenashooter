@@ -135,6 +135,15 @@ const translations = {
     'powerup.health': 'Botiquin',
     'powerup.ricochet': 'Rebote',
 
+    // Stats labels
+    'stats.health': 'VIDA',
+    'stats.speed': 'VELOC',
+    'stats.damage': 'DAÑO',
+    'stats.fireRate': 'CADENCIA',
+    'stats.hp': 'HP',
+    'stats.spd': 'VEL',
+    'stats.ultimate': 'ULTIMATE',
+
     // Lobby extras
     'lobby.roomCode': 'CODIGO DE SALA',
     'lobby.copyLink': 'COPIAR LINK',
@@ -168,6 +177,8 @@ const translations = {
     'game.timeSurvived': 'Tiempo Sobrevivido:',
     'game.returnLobby': 'VOLVER AL LOBBY',
     'game.playAgain': 'JUGAR DE NUEVO',
+    'game.paused': 'PAUSA',
+    'game.resume': 'CONTINUAR',
     'game.finalScores': 'PUNTAJES FINALES',
     'game.victory': 'VICTORIA!',
     'game.ultimateReady': '[Q] ULTIMATE: LISTO!',
@@ -330,6 +341,15 @@ const translations = {
     'powerup.health': 'First Aid',
     'powerup.ricochet': 'Bouncy Shots',
 
+    // Stats labels
+    'stats.health': 'HEALTH',
+    'stats.speed': 'SPEED',
+    'stats.damage': 'DAMAGE',
+    'stats.fireRate': 'FIRE RATE',
+    'stats.hp': 'HP',
+    'stats.spd': 'SPD',
+    'stats.ultimate': 'ULTIMATE',
+
     // Lobby extras
     'lobby.roomCode': 'ROOM CODE',
     'lobby.copyLink': 'COPY LINK',
@@ -363,6 +383,8 @@ const translations = {
     'game.timeSurvived': 'Time Survived:',
     'game.returnLobby': 'RETURN TO LOBBY',
     'game.playAgain': 'PLAY AGAIN',
+    'game.paused': 'PAUSED',
+    'game.resume': 'RESUME',
     'game.finalScores': 'FINAL SCORES',
     'game.victory': 'VICTORY!',
     'game.ultimateReady': '[Q] ULTIMATE: READY!',

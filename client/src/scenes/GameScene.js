@@ -41,6 +41,15 @@ export class GameScene extends Phaser.Scene {
     // Boss state for Infinite Horde mode
     this.activeBoss = null;
     this.isBossWave = false;
+
+    // Room info for return to lobby
+    this.roomCode = SocketManager.roomCode;
+    const playerIds = Object.keys(this.serverPlayers);
+    this.isHost = playerIds.length > 0 && playerIds[0] === SocketManager.playerId;
+
+    // ESC menu state
+    this.isPaused = false;
+    this.escMenuContainer = null;
   }
 
   create() {
@@ -82,6 +91,12 @@ export class GameScene extends Phaser.Scene {
 
     // Ultimate key
     this.input.keyboard.on('keydown-Q', () => this.handleUltimate());
+
+    // ESC menu
+    this.input.keyboard.on('keydown-ESC', () => {
+      if (this.isPaused) this.hideEscMenu();
+      else this.showEscMenu();
+    });
 
     // Socket events
     this.setupSocketEvents();
@@ -533,6 +548,19 @@ export class GameScene extends Phaser.Scene {
         gameDuration: data.gameDuration,
       });
     });
+
+    // Return to lobby (preserves room)
+    SocketManager.on('room:backToLobby', (data) => {
+      SoundManager.stopDubstep();
+      this.shutdown();
+      this.scene.start('LobbyScene', {
+        roomCode: this.roomCode,
+        isHost: this.isHost,
+        returnedFromGame: true,
+        selectedMap: data.selectedMap,
+        gameMode: data.gameMode,
+      });
+    });
   }
 
   // Sync functions for server-authoritative entities
@@ -659,7 +687,8 @@ export class GameScene extends Phaser.Scene {
   createMob(data) {
     // Get config from either regular mobs or boss mobs
     const mobConfig = data.isBoss ? BOSS_MOBS[data.type] : MOBS[data.type];
-    if (!mobConfig) return;
+    // Create fallback config if mob type not found in current theme
+    const config = mobConfig || { color: '#ff0000', name: data.type || 'Enemy' };
 
     // Create mob container for all parts
     const container = this.add.container(data.x, data.y);
@@ -1056,7 +1085,7 @@ export class GameScene extends Phaser.Scene {
 
     } else {
       // Default fallback
-      const sprite = this.add.circle(0, 0, data.isBoss ? 40 : 20, Phaser.Display.Color.HexStringToColor(mobConfig.color).color);
+      const sprite = this.add.circle(0, 0, data.isBoss ? 40 : 20, Phaser.Display.Color.HexStringToColor(config.color).color);
       sprite.setStrokeStyle(data.isBoss ? 5 : 3, 0x000000);
       container.add([sprite]);
       container.sprite = sprite;
@@ -1075,9 +1104,9 @@ export class GameScene extends Phaser.Scene {
 
     // Name tag - bigger for bosses
     const fontSize = data.isBoss ? '14px' : '10px';
-    const nameTag = this.add.text(data.x, data.y + barOffset - 15, mobConfig.name, {
+    const nameTag = this.add.text(data.x, data.y + barOffset - 15, config.name, {
       fontSize,
-      fill: mobConfig.color,
+      fill: config.color,
       fontFamily: 'Courier New',
       fontStyle: data.isBoss ? 'bold' : 'normal',
       stroke: '#000000',
@@ -1086,7 +1115,7 @@ export class GameScene extends Phaser.Scene {
 
     // Add elite indicator
     if (data.isElite) {
-      nameTag.setText(`★ ${mobConfig.name}`);
+      nameTag.setText(`★ ${config.name}`);
       nameTag.setStyle({ fill: '#ffff00' });
     }
 
@@ -3827,8 +3856,7 @@ export class GameScene extends Phaser.Scene {
     btnBg.on('pointerover', () => btnBg.setFillStyle(0x6666aa));
     btnBg.on('pointerout', () => btnBg.setFillStyle(0x444488));
     btnBg.on('pointerdown', () => {
-      SoundManager.stopDubstep();
-      this.scene.start('LobbyScene');
+      SocketManager.returnToLobby();
     });
   }
 
@@ -4141,9 +4169,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerover', () => lobbyBg.setFillStyle(0x6666aa));
     lobbyBg.on('pointerout', () => lobbyBg.setFillStyle(0x444488));
     lobbyBg.on('pointerdown', () => {
-      SoundManager.stopDubstep();
-      this.shutdown();
-      this.scene.start('LobbyScene');
+      SocketManager.returnToLobby();
     });
   }
 
@@ -4184,20 +4210,25 @@ export class GameScene extends Phaser.Scene {
 
   updateUltimateUI() {
     if (!this.ultimateText || !this.ultimateBarFill) return;
+    if (!this.ultimateText.active) return;
 
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer) return;
 
-    const charge = myPlayer.ultimateCharge || 0;
-    const fillWidth = (charge / 100) * 196;
-    this.ultimateBarFill.width = fillWidth;
+    try {
+      const charge = myPlayer.ultimateCharge || 0;
+      const fillWidth = (charge / 100) * 196;
+      this.ultimateBarFill.width = fillWidth;
 
-    if (charge >= 100) {
-      this.ultimateText.setText('[Q] ULTIMATE: READY!');
-      this.ultimateText.setStyle({ fill: '#00ff00' });
-    } else {
-      this.ultimateText.setText(`[Q] ULTIMATE: ${Math.floor(charge)}%`);
-      this.ultimateText.setStyle({ fill: '#ffffff' });
+      if (charge >= 100) {
+        this.ultimateText.setText('[Q] ULTIMATE: READY!');
+        this.ultimateText.setStyle({ fill: '#00ff00' });
+      } else {
+        this.ultimateText.setText(`[Q] ULTIMATE: ${Math.floor(charge)}%`);
+        this.ultimateText.setStyle({ fill: '#ffffff' });
+      }
+    } catch (e) {
+      // Scene destroyed, ignore
     }
 
     // Kill streak display
@@ -4479,6 +4510,78 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  showEscMenu() {
+    if (this.escMenuContainer) return;
+    this.isPaused = true;
+
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    this.escMenuContainer = this.add.container(W / 2, H / 2);
+    this.escMenuContainer.setDepth(1000);
+    this.escMenuContainer.setScrollFactor(0);
+
+    const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.7);
+    this.escMenuContainer.add(overlay);
+
+    const menuBg = this.add.rectangle(0, 0, 300, 250, 0x1a1a2e, 0.95);
+    menuBg.setStrokeStyle(2, 0x00ffff);
+    this.escMenuContainer.add(menuBg);
+
+    const title = this.add.text(0, -80, t('game.paused'), {
+      fontSize: '28px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.escMenuContainer.add(title);
+
+    const resumeBg = this.add.rectangle(0, -20, 220, 45, 0x448844);
+    resumeBg.setStrokeStyle(2, 0x00ff88);
+    resumeBg.setInteractive({ useHandCursor: true });
+    this.escMenuContainer.add(resumeBg);
+
+    const resumeText = this.add.text(0, -20, t('game.resume'), {
+      fontSize: '16px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.escMenuContainer.add(resumeText);
+
+    resumeBg.on('pointerover', () => resumeBg.setFillStyle(0x66aa66));
+    resumeBg.on('pointerout', () => resumeBg.setFillStyle(0x448844));
+    resumeBg.on('pointerdown', () => this.hideEscMenu());
+
+    const lobbyBg = this.add.rectangle(0, 40, 220, 45, 0x444488);
+    lobbyBg.setStrokeStyle(2, 0x00ffff);
+    lobbyBg.setInteractive({ useHandCursor: true });
+    this.escMenuContainer.add(lobbyBg);
+
+    const lobbyText = this.add.text(0, 40, t('game.returnLobby'), {
+      fontSize: '16px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    this.escMenuContainer.add(lobbyText);
+
+    lobbyBg.on('pointerover', () => lobbyBg.setFillStyle(0x6666aa));
+    lobbyBg.on('pointerout', () => lobbyBg.setFillStyle(0x444488));
+    lobbyBg.on('pointerdown', () => {
+      this.hideEscMenu();
+      SocketManager.returnToLobby();
+    });
+  }
+
+  hideEscMenu() {
+    this.isPaused = false;
+    if (this.escMenuContainer) {
+      this.escMenuContainer.destroy();
+      this.escMenuContainer = null;
+    }
+  }
+
   shutdown() {
     SoundManager.stopDubstep();
 
@@ -4494,6 +4597,7 @@ export class GameScene extends Phaser.Scene {
       'carpetBomb:explosion', 'lifeSwap',
       'mob:spawn', 'mob:hit', 'mob:death', 'mob:attack',
       'wave:start', 'wave:complete', 'wave:perkOffer', 'wave:perkSelected', 'wave:gameOver',
+      'room:backToLobby',
     ];
 
     events.forEach(event => SocketManager.off(event));

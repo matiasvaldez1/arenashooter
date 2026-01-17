@@ -31,28 +31,61 @@ Hold SPACE while moving to dodge. Provides brief invincibility frames.
 | Key | Action |
 |-----|--------|
 | TAB (hold) | View scoreboard |
+| ESC | Open/close pause menu |
+
+## Pause Menu
+
+Press ESC during gameplay to open the pause menu with options to:
+- **Resume** - Continue playing
+- **Return to Lobby** - Return all players to the lobby (preserves room and settings)
 
 ## Character Abilities
 
-### Messi (Argentina)
-- **Ability (SHIFT)**: Dribble - Quick dash through enemies, can pass through them briefly
-- **Ultimate (Q)**: Golden Ball - Become invincible and gain speed boost for a short duration
+The game has two themes with different characters:
 
-### Milei (Argentina)
-- **Ability (SHIFT)**: Chainsaw - Melee attack that damages all nearby enemies
-- **Ultimate (Q)**: Dollarization - Create a damage aura that hurts nearby enemies
+### Politics Theme
 
-### Trump (USA)
-- **Ability (SHIFT)**: Deploy Turret - Place an auto-targeting turret that shoots enemies
-- **Ultimate (Q)**: Build Wall - Create a large barrier wall for protection
+#### Messi (Argentina)
+- **Ability (SHIFT)**: Dribble - Quick dash through enemies
+- **Ultimate (Q)**: Golden Ball - Invincibility and omnidirectional fire
 
-### Biden (USA)
-- **Ability (SHIFT)**: Heal Zone - Create an area that heals allies over time
-- **Ultimate (Q)**: Carpet Bomb - Call in aerial bombardment across the arena
+#### Milei (Argentina)
+- **Ability (SHIFT)**: Chainsaw - Melee attack damaging nearby enemies
+- **Ultimate (Q)**: Dollarization - Rapid fire damage aura
 
-### Putin (Russia)
-- **Ability (SHIFT)**: Bear Turret - Deploy a bear that attacks nearby enemies
-- **Ultimate (Q)**: Nuclear Strike - Rain missiles across a line of the arena
+#### Trump (USA)
+- **Ability (SHIFT)**: Deploy Turret/Barrier - Place auto-turret or wall
+- **Ultimate (Q)**: MAGA Mech - Transform with increased health and damage
+
+#### Biden (USA)
+- **Ability (SHIFT)**: Heal Zone - Create healing area for allies
+- **Ultimate (Q)**: Executive Order - Swap health with lowest enemy
+
+#### Putin (Russia)
+- **Ability (SHIFT)**: Deploy Turret/Barrier - Place auto-turret or wall
+- **Ultimate (Q)**: Nuclear Strike - Carpet bomb the arena
+
+### K-pop Theme
+
+#### Jungkook (BTS)
+- **Ability (SHIFT)**: Dribble - Quick dash through enemies
+- **Ultimate (Q)**: Dynamite - Explosive fireworks across arena
+
+#### Momo (TWICE)
+- **Ability (SHIFT)**: Dance Zone - Speed boost for allies, slow for enemies
+- **Ultimate (Q)**: Fancy - Hypnotize and slow all enemies
+
+#### Haewon (NMIXX)
+- **Ability (SHIFT)**: Sonic Scream - Damage nearby enemies
+- **Ultimate (Q)**: O.O Effect - Multiple sonic shockwaves
+
+#### Lisa (BLACKPINK)
+- **Ability (SHIFT)**: Missile Barrage - Fire tracking missiles
+- **Ultimate (Q)**: Money - Damage aura around player
+
+#### Winter (aespa)
+- **Ability (SHIFT)**: Freeze Zone - Slow and freeze enemies
+- **Ultimate (Q)**: Black Mamba - Ice storm damaging and freezing all enemies
 
 ## Tips
 

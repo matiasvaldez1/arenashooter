@@ -168,6 +168,13 @@ class SocketManagerClass {
     this.socket.emit('game:playAgain');
   }
 
+  returnToLobby() {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+    this.socket.emit('room:returnToLobby');
+  }
+
   on(event, callback) {
     if (!this.socket) {
       console.warn('Cannot subscribe to event: socket not initialized');
