@@ -20,7 +20,7 @@ export const PLAYER_CLASSES = {
     ultimate: 'GOLDEN_BALL',
     ultimateCharge: 80,
     dashCooldown: 2000,
-    dashDistance: 250,
+    dashDistance: 400,
     projectileType: 'soccer_ball',
     description: 'The GOAT - Fast dribbles, deadly shots!',
   },

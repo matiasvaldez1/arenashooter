@@ -3429,8 +3429,9 @@ export class GameScene extends Phaser.Scene {
     const W = GAME_CONFIG.WIDTH;
     const H = GAME_CONFIG.HEIGHT;
 
-    // Dark overlay
+    // Dark overlay (depth -1 so cards render on top)
     const overlay = this.add.rectangle(0, 0, W, H, 0x000000, 0.8);
+    overlay.setDepth(-1);
     this.perkSelectionContainer.add(overlay);
 
     // Title
@@ -3468,11 +3469,11 @@ export class GameScene extends Phaser.Scene {
 
   createPerkCard(x, y, perkId, perk, width) {
     const card = this.add.container(x, y);
+    const height = 220;
 
     // Background
-    const bg = this.add.rectangle(0, 0, width, 220, 0x222244, 1);
+    const bg = this.add.rectangle(0, 0, width, height, 0x222244, 1);
     bg.setStrokeStyle(3, 0x00ffff);
-    bg.setInteractive({ useHandCursor: true });
     card.add(bg);
 
     // Icon (colored circle based on perk type)
@@ -3510,14 +3511,17 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
     card.add(descText);
 
-    // Click to select
-    bg.on('pointerover', () => {
+    // Make card container interactive (more reliable than nested rectangle)
+    card.setSize(width, height);
+    card.setInteractive({ useHandCursor: true });
+
+    card.on('pointerover', () => {
       bg.setStrokeStyle(3, 0xffff00);
     });
-    bg.on('pointerout', () => {
+    card.on('pointerout', () => {
       bg.setStrokeStyle(3, 0x00ffff);
     });
-    bg.on('pointerdown', () => {
+    card.on('pointerdown', () => {
       if (!this.selectedPerkId) {
         this.selectedPerkId = perkId;
         SocketManager.selectPerk(perkId);
@@ -3672,6 +3676,14 @@ export class GameScene extends Phaser.Scene {
     this.mobsRemaining = data.mobCount;
     this.isBossWave = data.isBossWave || false;
 
+    // Track game start time on first wave
+    if (this.waveNumber === 1 && !this.gameStartTime) {
+      this.gameStartTime = Date.now();
+    }
+
+    // Increase music intensity with each wave
+    SoundManager.setWaveIntensity(this.waveNumber);
+
     if (this.waveText) {
       this.waveText.setText(`WAVE ${this.waveNumber}`);
     }
@@ -3706,10 +3718,14 @@ export class GameScene extends Phaser.Scene {
   }
 
   onWaveGameOver(data) {
+    const localPlayer = this.localPlayers[SocketManager.playerId];
+    const perksCount = localPlayer?.perks ? Object.keys(localPlayer.perks).length : 0;
+    const timeSurvived = this.gameStartTime ? Date.now() - this.gameStartTime : 0;
+
     const stats = {
       totalKills: data.totalMobsKilled || 0,
-      perksCollected: 0,
-      timeSurvived: 0,
+      perksCollected: perksCount,
+      timeSurvived: timeSurvived,
     };
     if (data.finalKill) {
       this.showFinalKill(data.finalKill, () => {

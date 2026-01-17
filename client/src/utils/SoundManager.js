@@ -11,6 +11,8 @@ class SoundManagerClass {
     this.bassOsc = null;
     this.currentStep = 0;
     this.volume = 0.5;
+    this.waveIntensity = 1;
+    this.baseBPM = 140;
   }
 
   init() {
@@ -56,14 +58,28 @@ class SoundManagerClass {
 
   // ==================== DUBSTEP GENERATOR ====================
 
+  setWaveIntensity(waveNumber) {
+    this.waveIntensity = Math.min(1 + (waveNumber - 1) * 0.1, 2);
+    const newBPM = Math.min(this.baseBPM + (waveNumber - 1) * 5, 180);
+
+    if (this.isPlaying && this.dubstepInterval) {
+      clearInterval(this.dubstepInterval);
+      const stepTime = (60 / newBPM) / 4;
+      this.dubstepInterval = setInterval(() => {
+        this.playDubstepStep(this.currentStep);
+        this.currentStep = (this.currentStep + 1) % 32;
+      }, stepTime * 1000);
+    }
+  }
+
   startDubstep() {
     if (this.isPlaying) return;
     this.init();
     this.isPlaying = true;
     this.currentStep = 0;
 
-    // BPM for dubstep (140 is classic)
-    const bpm = 140;
+    // BPM for dubstep (140 is classic, increases with wave)
+    const bpm = Math.min(this.baseBPM + (this.waveIntensity - 1) * 40, 180);
     const stepTime = (60 / bpm) / 4; // 16th notes
 
     // Dubstep pattern
