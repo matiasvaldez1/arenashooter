@@ -1,6 +1,6 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG, GAME_MODES, getCharacterList, getCharacter } from '../../../shared/constants.js';
+import { GAME_CONFIG, GAME_MODES, getCharacterList, getCharacter, getActiveTheme } from '../../../shared/constants.js';
 import { MAPS } from '../../../shared/maps.js';
 import { t, getLanguage } from '../utils/i18n.js';
 import { COLORS, fontStyle } from '../config/theme.js';
@@ -68,9 +68,13 @@ export class LobbyScene extends Phaser.Scene {
 
   createBackground() {
     const graphics = this.add.graphics();
+    const theme = getActiveTheme();
+    const bgColors = theme.ui?.bgGradient || ['#1a1a2e', '#16213e'];
+    const bg1 = Phaser.Display.Color.HexStringToColor(bgColors[0]).color;
+    const bg2 = Phaser.Display.Color.HexStringToColor(bgColors[1]).color;
 
-    // Dark gradient
-    graphics.fillGradientStyle(0x1a1a2e, 0x16213e, 0x1a1a2e, 0x16213e);
+    // Dark gradient using theme colors
+    graphics.fillGradientStyle(bg1, bg2, bg1, bg2);
     graphics.fillRect(0, 0, this.W, this.H);
 
     // Grid pattern
@@ -85,11 +89,14 @@ export class LobbyScene extends Phaser.Scene {
     }
     graphics.strokePath();
 
-    // Animated neon lines
-    const colors = [0xff00ff, 0x00ffff, 0xffff00];
+    // Animated neon lines using theme colors
+    const primary = Phaser.Display.Color.HexStringToColor(theme.ui?.primary || '#ff00ff').color;
+    const secondary = Phaser.Display.Color.HexStringToColor(theme.ui?.secondary || '#00ffff').color;
+    const accent = Phaser.Display.Color.HexStringToColor(theme.ui?.accent || '#ffff00').color;
+    const lineColors = [primary, secondary, accent];
     for (let i = 0; i < 6; i++) {
       const line = this.add.graphics();
-      line.lineStyle(2, colors[i % colors.length], 0.2);
+      line.lineStyle(2, lineColors[i % lineColors.length], 0.2);
       line.moveTo(0, 100 + i * 120);
       line.lineTo(this.W, 100 + i * 120);
       line.strokePath();
@@ -105,15 +112,18 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   createRoomHeader() {
+    const theme = getActiveTheme();
+    const primaryColor = Phaser.Display.Color.HexStringToColor(theme.ui?.primary || '#ff00ff').color;
+
     // Room code box - top left
     const headerContainer = this.add.container(100, 35);
 
     const headerBg = this.add.rectangle(0, 0, 180, 50, 0x000000, 0.7);
-    headerBg.setStrokeStyle(2, 0xff00ff);
+    headerBg.setStrokeStyle(2, primaryColor);
 
     const label = this.add.text(0, -12, t('lobby.roomCode'), fontStyle('small', COLORS.textMuted)).setOrigin(0.5);
 
-    this.roomCodeText = this.add.text(0, 8, this.roomCode, fontStyle('heading', COLORS.primary)).setOrigin(0.5);
+    this.roomCodeText = this.add.text(0, 8, this.roomCode, fontStyle('heading', theme.ui?.primary || COLORS.primary)).setOrigin(0.5);
 
     headerContainer.add([headerBg, label, this.roomCodeText]);
 
@@ -143,6 +153,19 @@ export class LobbyScene extends Phaser.Scene {
       fill: '#ffff00',
       fontFamily: 'Courier New',
     }).setOrigin(1, 0.5);
+
+    // Theme indicator - top right below players
+    const themeContainer = this.add.container(this.W - 100, 75);
+    const themeBg = this.add.rectangle(0, 0, 180, 28, 0x000000, 0.7);
+    const themeColor = Phaser.Display.Color.HexStringToColor(theme.ui?.primary || '#ff69b4').color;
+    themeBg.setStrokeStyle(2, themeColor);
+    const themeText = this.add.text(0, 0, `${theme.flag || ''} ${theme.name}`, {
+      fontSize: '14px',
+      fill: theme.ui?.primary || '#ff69b4',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    themeContainer.add([themeBg, themeText]);
   }
 
   createStepIndicator() {
@@ -547,7 +570,7 @@ export class LobbyScene extends Phaser.Scene {
 
   createLargeClassCard(x, y, classType) {
     const container = this.add.container(x, y);
-    const stats = PLAYER_CLASSES[classType];
+    const stats = getCharacter(classType);
     const color = Phaser.Display.Color.HexStringToColor(stats.color).color;
 
     // Glow
@@ -576,8 +599,7 @@ export class LobbyScene extends Phaser.Scene {
     const quickStatsText = this.add.text(0, 55, quickStats, fontStyle('small', COLORS.textMuted)).setOrigin(0.5);
 
     // Ultimate name
-    const ultKey = this.getUltKeyForClass(classType);
-    const ultimateName = t(`ult.${ultKey}`);
+    const ultimateName = stats.ultimate?.name || 'Ultimate';
     const ultText = this.add.text(0, 75, `[Q] ${ultimateName}`, fontStyle('small', COLORS.warning)).setOrigin(0.5);
 
     // Selection indicator
@@ -631,9 +653,11 @@ export class LobbyScene extends Phaser.Scene {
   updateStatsDisplay(classType) {
     this.statsContainer.removeAll(true);
 
-    const stats = PLAYER_CLASSES[classType];
-    const ultimate = ULTIMATES[stats.ultimate];
+    const stats = getCharacter(classType);
+    if (!stats) return;
+
     const color = stats.color;
+    const ultimate = stats.ultimate;
 
     const bg = this.add.rectangle(0, 0, 900, 80, 0x000000, 0.7);
     bg.setStrokeStyle(2, Phaser.Display.Color.HexStringToColor(color).color);
@@ -645,8 +669,7 @@ export class LobbyScene extends Phaser.Scene {
     ).setOrigin(0.5);
 
     // Description
-    const descKey = `char.${classType.toLowerCase()}.desc`;
-    const description = t(descKey);
+    const description = stats.description || '';
     const statsLine2 = this.add.text(0, 2, description, {
       fontSize: '14px',
       fill: '#aaaaaa',
@@ -654,9 +677,7 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Ultimate info
-    const ultNameKey = `ult.${this.getUltimateKey(stats.ultimate)}`;
-    const ultDescKey = `ult.${this.getUltimateKey(stats.ultimate)}Desc`;
-    const ultInfo = ultimate ? `[Q] ULTIMATE: ${t(ultNameKey)} - ${t(ultDescKey)}` : '';
+    const ultInfo = ultimate ? `[Q] ULTIMATE: ${ultimate.name} - ${ultimate.description}` : '';
     const statsLine3 = this.add.text(0, 26, ultInfo, {
       fontSize: '13px',
       fill: color,
@@ -686,7 +707,7 @@ export class LobbyScene extends Phaser.Scene {
     this.players.forEach((player, index) => {
       const y = 25 + index * 22;
       const isMe = player.id === SocketManager.playerId;
-      const stats = PLAYER_CLASSES[player.classType || 'MESSI'];
+      const stats = getCharacter(player.classType || getCharacterList()[0]);
 
       const text = this.add.text(0, y, player.name.substring(0, 8), fontStyle('small', isMe ? COLORS.warning : (stats?.color || COLORS.text))).setOrigin(0.5);
 
@@ -740,7 +761,7 @@ export class LobbyScene extends Phaser.Scene {
     const mode = GAME_MODES[this.selectedGameMode];
     const map = MAPS[this.selectedMap];
     const isSpanish = getLanguage() === 'es-AR';
-    const myClass = PLAYER_CLASSES[this.selectedClass];
+    const myClass = getCharacter(this.selectedClass);
 
     const bg = this.add.rectangle(0, 0, 600, 100, 0x000000, 0.7);
     bg.setStrokeStyle(2, 0x00ffff);
@@ -792,7 +813,7 @@ export class LobbyScene extends Phaser.Scene {
     this.players.forEach((player, index) => {
       const y = -bg.height / 2 + 50 + index * 32;
       const isMe = player.id === SocketManager.playerId;
-      const stats = PLAYER_CLASSES[player.classType || 'MESSI'];
+      const stats = getCharacter(player.classType || getCharacterList()[0]);
 
       // Name
       const nameText = this.add.text(-180, y, `${isMe ? '> ' : '  '}${player.name}`, {
@@ -1102,20 +1123,6 @@ export class LobbyScene extends Phaser.Scene {
         this.gameModeCards[key].glow.setVisible(key === modeKey);
       });
     }
-  }
-
-  // ==================== HELPERS ====================
-  getUltimateKey(ultimate) {
-    if (!ultimate) return 'unknown';
-    return ultimate.toLowerCase().replace(/_/g, '');
-  }
-
-  getUltKeyForClass(classType) {
-    const character = getCharacter(classType);
-    if (character?.ultimate?.id) {
-      return character.ultimate.id.toLowerCase().replace(/_/g, '');
-    }
-    return 'unknown';
   }
 
   shutdown() {

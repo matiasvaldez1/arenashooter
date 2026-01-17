@@ -6,7 +6,7 @@ export const THEMES = {
   KPOP: KPOP_THEME,
 };
 
-let activeThemeId = 'POLITICS';
+let activeThemeId = 'KPOP';
 
 export function getActiveTheme() {
   return THEMES[activeThemeId];

@@ -2,6 +2,13 @@ export const KPOP_THEME = {
   id: 'KPOP',
   name: 'K-pop Edition',
   description: 'K-pop idols battle for the stage!',
+  flag: '🇰🇷',
+  ui: {
+    primary: '#ff69b4',
+    secondary: '#9b59b6',
+    accent: '#ff1493',
+    bgGradient: ['#1a0a2e', '#2d1b4e'],
+  },
 
   characters: {
     JUNGKOOK: {

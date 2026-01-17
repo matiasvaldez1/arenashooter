@@ -2,6 +2,13 @@ export const POLITICS_THEME = {
   id: 'POLITICS',
   name: 'Famous Personalities',
   description: 'World leaders and famous personalities battle it out!',
+  flag: '🌍',
+  ui: {
+    primary: '#00ffff',
+    secondary: '#ff00ff',
+    accent: '#ffff00',
+    bgGradient: ['#1a1a2e', '#16213e'],
+  },
 
   characters: {
     MESSI: {
