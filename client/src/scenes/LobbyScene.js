@@ -109,7 +109,7 @@ export class LobbyScene extends Phaser.Scene {
     const headerBg = this.add.rectangle(0, 0, 180, 50, 0x000000, 0.7);
     headerBg.setStrokeStyle(2, 0xff00ff);
 
-    const label = this.add.text(0, -12, 'ROOM CODE', {
+    const label = this.add.text(0, -12, t('lobby.roomCode'), {
       fontSize: '10px',
       fill: '#888888',
       fontFamily: 'Courier New',
@@ -128,7 +128,7 @@ export class LobbyScene extends Phaser.Scene {
     const copyBtn = this.add.container(100, 75);
     const copyBg = this.add.rectangle(0, 0, 120, 22, 0x000000, 0.5);
     copyBg.setStrokeStyle(1, 0x00ff88);
-    const copyText = this.add.text(0, 0, 'COPY LINK', {
+    const copyText = this.add.text(0, 0, t('lobby.copyLink'), {
       fontSize: '11px',
       fill: '#00ff88',
       fontFamily: 'Courier New',
@@ -143,9 +143,9 @@ export class LobbyScene extends Phaser.Scene {
     copyBtn.on('pointerdown', () => {
       const link = `${window.location.origin}?room=${this.roomCode}`;
       navigator.clipboard.writeText(link);
-      copyText.setText('COPIED!');
+      copyText.setText(t('lobby.copied'));
       SoundManager.playUIClick();
-      this.time.delayedCall(1500, () => copyText.setText('COPY LINK'));
+      this.time.delayedCall(1500, () => copyText.setText(t('lobby.copyLink')));
     });
 
     // Players count - top right
@@ -231,7 +231,7 @@ export class LobbyScene extends Phaser.Scene {
     this.stepContainers[STEPS.GAME_MODE] = container;
 
     // Title
-    const title = this.add.text(this.centerX, 100, 'SELECT GAME MODE', {
+    const title = this.add.text(this.centerX, 100, t('lobby.selectMode'), {
       fontSize: '32px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -241,7 +241,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // Subtitle for non-host
     if (!this.isHost) {
-      const subtitle = this.add.text(this.centerX, 135, 'Waiting for host to choose...', {
+      const subtitle = this.add.text(this.centerX, 135, t('lobby.waitingHost'), {
         fontSize: '16px',
         fill: '#888888',
         fontFamily: 'Courier New',
@@ -303,7 +303,7 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Player count
-    const playerInfo = isWave ? '1-4 Players (Co-op)' : '1-8 Players (FFA)';
+    const playerInfo = isWave ? t('lobby.coop') : t('lobby.ffa');
     const playerText = this.add.text(0, 75, playerInfo, {
       fontSize: '12px',
       fill: '#666666',
@@ -311,7 +311,7 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Selection indicator
-    const selector = this.add.text(0, -95, '★ SELECTED', {
+    const selector = this.add.text(0, -95, t('lobby.selected'), {
       fontSize: '12px',
       fill: '#ffff00',
       fontFamily: 'Courier New',
@@ -371,7 +371,7 @@ export class LobbyScene extends Phaser.Scene {
     this.stepContainers[STEPS.MAP] = container;
 
     // Title
-    const title = this.add.text(this.centerX, 100, 'SELECT MAP', {
+    const title = this.add.text(this.centerX, 100, t('lobby.selectMap'), {
       fontSize: '32px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -381,7 +381,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // Subtitle for non-host
     if (!this.isHost) {
-      const subtitle = this.add.text(this.centerX, 135, 'Waiting for host to choose...', {
+      const subtitle = this.add.text(this.centerX, 135, t('lobby.waitingHost'), {
         fontSize: '16px',
         fill: '#888888',
         fontFamily: 'Courier New',
@@ -528,7 +528,7 @@ export class LobbyScene extends Phaser.Scene {
     this.stepContainers[STEPS.CHARACTER] = container;
 
     // Title
-    const title = this.add.text(this.centerX, 90, 'SELECT YOUR CHARACTER', {
+    const title = this.add.text(this.centerX, 90, t('lobby.selectCharacter'), {
       fontSize: '32px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -611,7 +611,7 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Selection indicator
-    const selector = this.add.text(0, -100, '★ SELECTED', {
+    const selector = this.add.text(0, -100, t('lobby.selected'), {
       fontSize: '11px',
       fill: '#ffff00',
       fontFamily: 'Courier New',
@@ -705,7 +705,7 @@ export class LobbyScene extends Phaser.Scene {
     // Small players list on the right
     const container = this.add.container(this.W - 100, 200);
 
-    const title = this.add.text(0, 0, 'PLAYERS', {
+    const title = this.add.text(0, 0, t('lobby.players'), {
       fontSize: '12px',
       fill: '#ffff00',
       fontFamily: 'Courier New',
@@ -745,7 +745,7 @@ export class LobbyScene extends Phaser.Scene {
     this.stepContainers[STEPS.READY] = container;
 
     // Title
-    const title = this.add.text(this.centerX, 100, 'READY UP!', {
+    const title = this.add.text(this.centerX, 100, t('lobby.readyUp'), {
       fontSize: '36px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -790,7 +790,7 @@ export class LobbyScene extends Phaser.Scene {
     bg.setStrokeStyle(2, 0x00ffff);
 
     // Mode
-    const modeText = this.add.text(-200, -25, `MODE: ${mode.name}`, {
+    const modeText = this.add.text(-200, -25, `${t('lobby.mode')} ${mode.name}`, {
       fontSize: '16px',
       fill: '#00ffff',
       fontFamily: 'Courier New',
@@ -798,14 +798,14 @@ export class LobbyScene extends Phaser.Scene {
 
     // Map
     const mapName = isSpanish ? map.name : map.nameEn;
-    const mapText = this.add.text(-200, 5, `MAP: ${mapName}`, {
+    const mapText = this.add.text(-200, 5, `${t('lobby.map')} ${mapName}`, {
       fontSize: '16px',
       fill: map.color,
       fontFamily: 'Courier New',
     }).setOrigin(0, 0.5);
 
     // Character
-    const charText = this.add.text(-200, 35, `CHARACTER: ${this.selectedClass}`, {
+    const charText = this.add.text(-200, 35, `${t('lobby.character')} ${this.selectedClass}`, {
       fontSize: '16px',
       fill: myClass.color,
       fontFamily: 'Courier New',
@@ -825,7 +825,7 @@ export class LobbyScene extends Phaser.Scene {
     bg.setStrokeStyle(2, 0xffff00);
     this.readyPlayersContainer.add(bg);
 
-    const headerText = this.add.text(0, -bg.height / 2 + 20, 'PLAYERS', {
+    const headerText = this.add.text(0, -bg.height / 2 + 20, t('lobby.players'), {
       fontSize: '14px',
       fill: '#ffff00',
       fontFamily: 'Courier New',
@@ -853,7 +853,7 @@ export class LobbyScene extends Phaser.Scene {
       }).setOrigin(0, 0.5);
 
       // Ready status
-      const readyText = this.add.text(150, y, player.ready ? '✓ READY' : 'WAITING', {
+      const readyText = this.add.text(150, y, player.ready ? t('lobby.checkReady') : t('lobby.statusWaiting'), {
         fontSize: '14px',
         fill: player.ready ? '#00ff88' : '#666666',
         fontFamily: 'Courier New',
@@ -864,7 +864,7 @@ export class LobbyScene extends Phaser.Scene {
 
     // Update ready count
     const readyCount = this.players.filter(p => p.ready).length;
-    this.readyStatusText.setText(`${readyCount}/${this.players.length} players ready`);
+    this.readyStatusText.setText(`${readyCount}/${this.players.length} ${t('lobby.playersReady')}`);
   }
 
   createReadyButton(x, y) {
@@ -876,7 +876,7 @@ export class LobbyScene extends Phaser.Scene {
     const bg = this.add.rectangle(0, 0, 150, 45, 0x000000, 0.8);
     bg.setStrokeStyle(3, 0x00ff88);
 
-    const text = this.add.text(0, 0, 'READY', {
+    const text = this.add.text(0, 0, t('lobby.ready'), {
       fontSize: '22px',
       fill: '#00ff88',
       fontFamily: 'Courier New',
@@ -923,13 +923,13 @@ export class LobbyScene extends Phaser.Scene {
     SocketManager.setReady(this.isReady);
 
     if (this.isReady) {
-      this.readyBtn.text.setText('CANCEL');
+      this.readyBtn.text.setText(t('lobby.cancel'));
       this.readyBtn.text.setStyle({ fill: '#ff8844' });
       this.readyBtn.bg.setStrokeStyle(3, 0xff8844);
       this.readyBtn.glow.setFillStyle(0xff8844, 0.2);
       this.readyBtn.glow.setVisible(true);
     } else {
-      this.readyBtn.text.setText('READY');
+      this.readyBtn.text.setText(t('lobby.ready'));
       this.readyBtn.text.setStyle({ fill: '#00ff88' });
       this.readyBtn.bg.setStrokeStyle(3, 0x00ff88);
       this.readyBtn.glow.setFillStyle(0x00ff88, 0.2);
@@ -944,7 +944,7 @@ export class LobbyScene extends Phaser.Scene {
     const bg = this.add.rectangle(0, 0, 140, 40, 0x000000, 0.8);
     bg.setStrokeStyle(2, 0x00ff88);
 
-    const text = this.add.text(0, 0, 'NEXT →', {
+    const text = this.add.text(0, 0, t('lobby.next'), {
       fontSize: '18px',
       fill: '#00ff88',
       fontFamily: 'Courier New',
@@ -980,7 +980,7 @@ export class LobbyScene extends Phaser.Scene {
     const bg = this.add.rectangle(0, 0, 140, 40, 0x000000, 0.8);
     bg.setStrokeStyle(2, 0x888888);
 
-    const text = this.add.text(0, 0, '← BACK', {
+    const text = this.add.text(0, 0, t('lobby.back'), {
       fontSize: '18px',
       fill: '#888888',
       fontFamily: 'Courier New',
@@ -1118,7 +1118,8 @@ export class LobbyScene extends Phaser.Scene {
 
   updatePlayersList(players) {
     this.players = players;
-    this.playersCountText.setText(`${players.length} player${players.length !== 1 ? 's' : ''}`);
+    const playerWord = players.length !== 1 ? t('lobby.playersPlural') : t('lobby.player');
+    this.playersCountText.setText(`${players.length} ${playerWord}`);
 
     if (this.currentStep === STEPS.CHARACTER) {
       this.updateMiniPlayersList();

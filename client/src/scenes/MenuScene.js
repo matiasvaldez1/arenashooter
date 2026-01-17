@@ -384,6 +384,15 @@ export class MenuScene extends Phaser.Scene {
     const updateVolumeDisplay = () => {
       const vol = Math.round(SoundManager.getVolume() * 100);
       this.volumeText.setText(`${vol}%`);
+      // Flash feedback
+      this.volumeText.setScale(1.3);
+      this.volumeText.setStyle({ fill: '#ffff00' });
+      this.tweens.add({
+        targets: this.volumeText,
+        scale: 1,
+        duration: 150,
+        onComplete: () => this.volumeText.setStyle({ fill: '#00ffff' }),
+      });
     };
 
     volDown.on('pointerdown', () => {
