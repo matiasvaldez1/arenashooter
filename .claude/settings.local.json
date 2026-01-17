@@ -1,2 +1,9 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(fly platform:*)",
+      "Bash(timeout:*)",
+      "Bash(git add:*)"
+    ]
+  }
 }

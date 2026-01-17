@@ -14,6 +14,7 @@ const translations = {
     'menu.enterRoomCode': '[ CODIGO DE SALA ]',
     'menu.joinRoom': 'UNIRSE A SALA',
     'menu.music': 'MUSICA',
+    'menu.volume': 'VOLUMEN',
     'menu.enterRoomCodeError': 'Ingresa un codigo de sala!',
 
     // Lobby Scene
@@ -110,6 +111,7 @@ const translations = {
     'menu.enterRoomCode': '[ ENTER ROOM CODE ]',
     'menu.joinRoom': 'JOIN ROOM',
     'menu.music': 'MUSIC',
+    'menu.volume': 'VOLUME',
     'menu.enterRoomCodeError': 'Please enter a room code!',
 
     // Lobby Scene

@@ -23,6 +23,8 @@ const io = new Server(httpServer, {
     },
     methods: ['GET', 'POST'],
   },
+  transports: ['websocket'],
+  allowUpgrades: false,
 });
 
 const clientDistPath = path.join(__dirname, '../client/dist');

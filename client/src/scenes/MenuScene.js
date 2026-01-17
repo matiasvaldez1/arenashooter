@@ -335,8 +335,43 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createMusicButton() {
+    const baseX = GAME_CONFIG.WIDTH - 80;
+    const baseY = 30;
+
+    // Volume down button
+    const volDown = this.add
+      .text(baseX - 40, baseY, '-', {
+        fontSize: '28px',
+        fill: '#888888',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    // Volume display
+    this.volumeText = this.add
+      .text(baseX, baseY, `${Math.round(SoundManager.getVolume() * 100)}%`, {
+        fontSize: '18px',
+        fill: '#00ffff',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5);
+
+    // Volume up button
+    const volUp = this.add
+      .text(baseX + 40, baseY, '+', {
+        fontSize: '28px',
+        fill: '#888888',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    // Music toggle button
     const musicBtn = this.add
-      .text(GAME_CONFIG.WIDTH - 50, 30, '♪', {
+      .text(baseX + 80, baseY, '♪', {
         fontSize: '32px',
         fill: '#888888',
         fontFamily: 'Arial',
@@ -345,6 +380,45 @@ export class MenuScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     let musicPlaying = false;
+
+    const updateVolumeDisplay = () => {
+      const vol = Math.round(SoundManager.getVolume() * 100);
+      this.volumeText.setText(`${vol}%`);
+    };
+
+    volDown.on('pointerdown', () => {
+      SoundManager.playUIClick();
+      const newVol = Math.max(0, SoundManager.getVolume() - 0.1);
+      SoundManager.setVolume(newVol);
+      updateVolumeDisplay();
+    });
+
+    volDown.on('pointerover', () => {
+      volDown.setScale(1.3);
+      volDown.setStyle({ fill: '#ff4444' });
+    });
+
+    volDown.on('pointerout', () => {
+      volDown.setScale(1);
+      volDown.setStyle({ fill: '#888888' });
+    });
+
+    volUp.on('pointerdown', () => {
+      SoundManager.playUIClick();
+      const newVol = Math.min(1, SoundManager.getVolume() + 0.1);
+      SoundManager.setVolume(newVol);
+      updateVolumeDisplay();
+    });
+
+    volUp.on('pointerover', () => {
+      volUp.setScale(1.3);
+      volUp.setStyle({ fill: '#00ff88' });
+    });
+
+    volUp.on('pointerout', () => {
+      volUp.setScale(1);
+      volUp.setStyle({ fill: '#888888' });
+    });
 
     musicBtn.on('pointerdown', () => {
       if (!musicPlaying) {
@@ -368,13 +442,13 @@ export class MenuScene extends Phaser.Scene {
 
     // Add label
     this.musicLabel = this.add
-      .text(GAME_CONFIG.WIDTH - 50, 55, t('menu.music'), {
+      .text(baseX + 20, 55, t('menu.volume'), {
         fontSize: '10px',
         fill: '#666666',
         fontFamily: 'Courier New',
       })
       .setOrigin(0.5);
-    this.translatableTexts.push({ text: this.musicLabel, key: 'menu.music' });
+    this.translatableTexts.push({ text: this.musicLabel, key: 'menu.volume' });
   }
 
   createLanguageButton() {

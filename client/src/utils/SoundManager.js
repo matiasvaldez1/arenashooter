@@ -10,6 +10,7 @@ class SoundManagerClass {
     this.dubstepInterval = null;
     this.bassOsc = null;
     this.currentStep = 0;
+    this.volume = 0.5;
   }
 
   init() {
@@ -19,7 +20,7 @@ class SoundManagerClass {
 
     // Master gain
     this.masterGain = this.audioContext.createGain();
-    this.masterGain.gain.value = 0.7;
+    this.masterGain.gain.value = this.volume;
     this.masterGain.connect(this.audioContext.destination);
 
     // Music gain
@@ -40,6 +41,17 @@ class SoundManagerClass {
     this.compressor.attack.value = 0.003;
     this.compressor.release.value = 0.25;
     this.compressor.connect(this.musicGain);
+  }
+
+  setVolume(value) {
+    this.volume = Math.max(0, Math.min(1, value));
+    if (this.masterGain) {
+      this.masterGain.gain.value = this.volume;
+    }
+  }
+
+  getVolume() {
+    return this.volume;
   }
 
   // ==================== DUBSTEP GENERATOR ====================
