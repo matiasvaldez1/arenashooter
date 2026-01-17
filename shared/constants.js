@@ -19,8 +19,8 @@ export const PLAYER_CLASSES = {
     color: '#75aaff', // Argentina blue
     ultimate: 'GOLDEN_BALL',
     ultimateCharge: 80,
-    dashCooldown: 2500,
-    dashDistance: 160,
+    dashCooldown: 2000,
+    dashDistance: 250,
     projectileType: 'soccer_ball',
     description: 'The GOAT - Fast dribbles, deadly shots!',
   },
@@ -224,11 +224,74 @@ export const GAME_MODES = {
     maxPlayers: 4,
     isCooperative: true,
   },
+  INFINITE_HORDE: {
+    id: 'INFINITE_HORDE',
+    name: 'Infinite Horde',
+    description: 'Endless waves with boss fights every 3 waves',
+    minPlayers: 1,
+    maxPlayers: 4,
+    isCooperative: true,
+  },
+};
+
+export const INFINITE_HORDE_CONFIG = {
+  BASE_MOB_COUNT: 3,
+  MOB_INCREMENT_PER_WAVE: 1,
+  BOSS_EVERY_N_WAVES: 3,
+  MAX_SIMULTANEOUS_MOBS: 30,
+  HEALTH_SCALING: 1.08,
+  DAMAGE_SCALING: 1.05,
+  SPAWN_INTERVAL_MS: 600,
+  WAVE_DELAY_MS: 5000,
+  ELITE_CHANCE_BASE: 0.08,
+  ELITE_CHANCE_INCREMENT: 0.015,
 };
 
 export const ARENA_CONFIG = {
   GAME_DURATION_MS: 90 * 1000, // 90 seconds
   WIN_SCORE: null, // null = time-based, or set a score to win
+};
+
+export const TEAM_ABILITIES = {
+  COMBO_DAMAGE: {
+    enabled: true,
+    windowMs: 1000,
+    bonuses: {
+      2: 0.10,
+      3: 0.25,
+      4: 0.50,
+    },
+    stunAt4: true,
+    stunDuration: 500,
+  },
+  AURAS: {
+    MESSI: {
+      type: 'SPEED_AURA',
+      radius: 150,
+      speedBonus: 0.10,
+    },
+    MILEI: {
+      type: 'ECONOMIC_BOOST',
+      cooldown: 30000,
+      duration: 5000,
+      powerupMultiplier: 2.0,
+    },
+    TRUMP: {
+      type: 'WALL_RALLY',
+      radius: 120,
+      damageBonus: 0.15,
+      duration: 8000,
+    },
+    BIDEN: {
+      type: 'HEAL_ZONE',
+      slowEnemies: 0.20,
+    },
+    PUTIN: {
+      type: 'FEAR_AURA',
+      radius: 100,
+      mobDamageReduction: 0.20,
+    },
+  },
 };
 
 export const WAVE_CONFIG = {
@@ -371,5 +434,69 @@ export const MAP_MODIFIERS = {
     description: 'All players slowly heal',
     color: '#88ff88',
     effect: { regenPerSecond: 3 },
+  },
+  BIG_HEADS: {
+    id: 'BIG_HEADS',
+    name: 'Big Heads',
+    description: '2x head hitbox, 2x headshot damage',
+    color: '#ff00ff',
+    effect: { headHitboxMultiplier: 2.0, headshotDamageMultiplier: 2.0 },
+    category: 'FUN',
+  },
+  LOW_GRAVITY: {
+    id: 'LOW_GRAVITY',
+    name: 'Low Gravity',
+    description: 'Higher jumps, floaty movement',
+    color: '#aaaaff',
+    effect: { gravityMultiplier: 0.5, jumpMultiplier: 1.5 },
+    category: 'FUN',
+  },
+  EXPLOSIVE_BARRELS: {
+    id: 'EXPLOSIVE_BARRELS',
+    name: 'Kaboom',
+    description: '3x barrel spawns, chain reactions',
+    color: '#ff6600',
+    effect: { barrelMultiplier: 3, chainReaction: true },
+    category: 'CHAOS',
+  },
+  ONE_HIT_MODE: {
+    id: 'ONE_HIT_MODE',
+    name: 'One Hit Wonder',
+    description: 'All damage = instant death',
+    color: '#ff0000',
+    effect: { oneHitKill: true },
+    category: 'INTENSE',
+  },
+  INFINITE_AMMO: {
+    id: 'INFINITE_AMMO',
+    name: 'Unlimited Power',
+    description: 'No reload, no cooldowns',
+    color: '#00ffff',
+    effect: { noCooldowns: true },
+    category: 'MAYHEM',
+  },
+  TINY_PLAYERS: {
+    id: 'TINY_PLAYERS',
+    name: 'Tiny Mode',
+    description: '0.5x player size, harder to hit',
+    color: '#ffaaff',
+    effect: { playerScale: 0.5, hitboxScale: 0.5 },
+    category: 'FUN',
+  },
+  RICOCHET_MADNESS: {
+    id: 'RICOCHET_MADNESS',
+    name: 'Ricochet Madness',
+    description: 'All bullets bounce 5 times',
+    color: '#ffff00',
+    effect: { ricochetCount: 5 },
+    category: 'CHAOS',
+  },
+  MIRROR_MODE: {
+    id: 'MIRROR_MODE',
+    name: 'Mirror Mode',
+    description: 'Controls randomly invert',
+    color: '#8888ff',
+    effect: { randomInvert: true, invertInterval: 10000 },
+    category: 'CHAOS',
   },
 };
