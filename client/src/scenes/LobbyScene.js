@@ -3,6 +3,7 @@ import { SoundManager } from '../utils/SoundManager.js';
 import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG, GAME_MODES } from '../../../shared/constants.js';
 import { MAPS } from '../../../shared/maps.js';
 import { t, getLanguage } from '../utils/i18n.js';
+import { COLORS, fontStyle } from '../config/theme.js';
 
 const STEPS = {
   GAME_MODE: 0,
@@ -109,18 +110,9 @@ export class LobbyScene extends Phaser.Scene {
     const headerBg = this.add.rectangle(0, 0, 180, 50, 0x000000, 0.7);
     headerBg.setStrokeStyle(2, 0xff00ff);
 
-    const label = this.add.text(0, -12, t('lobby.roomCode'), {
-      fontSize: '10px',
-      fill: '#888888',
-      fontFamily: 'Courier New',
-    }).setOrigin(0.5);
+    const label = this.add.text(0, -12, t('lobby.roomCode'), fontStyle('small', COLORS.textMuted)).setOrigin(0.5);
 
-    this.roomCodeText = this.add.text(0, 8, this.roomCode, {
-      fontSize: '24px',
-      fill: '#00ffff',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    this.roomCodeText = this.add.text(0, 8, this.roomCode, fontStyle('heading', COLORS.primary)).setOrigin(0.5);
 
     headerContainer.add([headerBg, label, this.roomCodeText]);
 
@@ -128,11 +120,7 @@ export class LobbyScene extends Phaser.Scene {
     const copyBtn = this.add.container(100, 75);
     const copyBg = this.add.rectangle(0, 0, 120, 22, 0x000000, 0.5);
     copyBg.setStrokeStyle(1, 0x00ff88);
-    const copyText = this.add.text(0, 0, t('lobby.copyLink'), {
-      fontSize: '11px',
-      fill: '#00ff88',
-      fontFamily: 'Courier New',
-    }).setOrigin(0.5);
+    const copyText = this.add.text(0, 0, t('lobby.copyLink'), fontStyle('small', COLORS.success)).setOrigin(0.5);
 
     copyBtn.add([copyBg, copyText]);
     copyBtn.setSize(120, 22);
@@ -179,11 +167,7 @@ export class LobbyScene extends Phaser.Scene {
       }).setOrigin(0.5);
 
       // Label below
-      const labelText = this.add.text(x, 24, label, {
-        fontSize: '10px',
-        fill: '#666666',
-        fontFamily: 'Courier New',
-      }).setOrigin(0.5);
+      const labelText = this.add.text(x, 24, label, fontStyle('small', COLORS.textDim)).setOrigin(0.5);
 
       // Connecting line (except for last)
       let line = null;
@@ -252,8 +236,9 @@ export class LobbyScene extends Phaser.Scene {
 
     // Game mode cards - larger, centered
     const modeKeys = Object.keys(GAME_MODES);
-    const spacing = 350;
-    const startX = this.centerX - spacing / 2;
+    const spacing = 300;
+    const totalWidth = (modeKeys.length - 1) * spacing;
+    const startX = this.centerX - totalWidth / 2;
 
     this.gameModeCards = {};
     modeKeys.forEach((modeKey, index) => {
@@ -269,8 +254,9 @@ export class LobbyScene extends Phaser.Scene {
     const mode = GAME_MODES[modeKey];
     const container = this.add.container(x, y);
     const isWave = modeKey === 'WAVE_SURVIVAL';
-    const color = isWave ? 0xff00ff : 0x00ffff;
-    const colorHex = isWave ? '#ff00ff' : '#00ffff';
+    const isHorde = modeKey === 'INFINITE_HORDE';
+    const color = isHorde ? 0xff4400 : (isWave ? 0xff00ff : 0x00ffff);
+    const colorHex = isHorde ? '#ff4400' : (isWave ? '#ff00ff' : '#00ffff');
 
     // Glow
     const glow = this.add.rectangle(0, 0, 290, 220, color, 0.15);
@@ -281,7 +267,8 @@ export class LobbyScene extends Phaser.Scene {
     bg.setStrokeStyle(3, color);
 
     // Icon
-    const icon = this.add.text(0, -60, isWave ? '🌊' : '⚔️', {
+    const iconEmoji = isHorde ? '💀' : (isWave ? '🌊' : '⚔️');
+    const icon = this.add.text(0, -60, iconEmoji, {
       fontSize: '48px',
     }).setOrigin(0.5);
 
@@ -303,20 +290,11 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Player count
-    const playerInfo = isWave ? t('lobby.coop') : t('lobby.ffa');
-    const playerText = this.add.text(0, 75, playerInfo, {
-      fontSize: '12px',
-      fill: '#666666',
-      fontFamily: 'Courier New',
-    }).setOrigin(0.5);
+    const playerInfo = (isWave || isHorde) ? t('lobby.coop') : t('lobby.ffa');
+    const playerText = this.add.text(0, 75, playerInfo, fontStyle('small', COLORS.textDim)).setOrigin(0.5);
 
     // Selection indicator
-    const selector = this.add.text(0, -95, t('lobby.selected'), {
-      fontSize: '12px',
-      fill: '#ffff00',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    const selector = this.add.text(0, -95, t('lobby.selected'), fontStyle('small', COLORS.warning)).setOrigin(0.5);
     selector.setVisible(modeKey === this.selectedGameMode);
 
     container.add([glow, bg, icon, nameText, descText, playerText, selector]);
@@ -453,9 +431,7 @@ export class LobbyScene extends Phaser.Scene {
     }
 
     const descText = this.add.text(0, -5, descLines.join('\n'), {
-      fontSize: '12px',
-      fill: '#aaaaaa',
-      fontFamily: 'Courier New',
+      ...fontStyle('small', COLORS.textMuted),
       align: 'center',
     }).setOrigin(0.5);
 
@@ -595,28 +571,15 @@ export class LobbyScene extends Phaser.Scene {
 
     // Quick stats
     const quickStats = `HP:${stats.health} SPD:${stats.speed}`;
-    const quickStatsText = this.add.text(0, 55, quickStats, {
-      fontSize: '11px',
-      fill: '#888888',
-      fontFamily: 'Courier New',
-    }).setOrigin(0.5);
+    const quickStatsText = this.add.text(0, 55, quickStats, fontStyle('small', COLORS.textMuted)).setOrigin(0.5);
 
     // Ultimate name
     const ultKey = this.getUltKeyForClass(classType);
     const ultimateName = t(`ult.${ultKey}`);
-    const ultText = this.add.text(0, 75, `[Q] ${ultimateName}`, {
-      fontSize: '10px',
-      fill: '#ffff00',
-      fontFamily: 'Courier New',
-    }).setOrigin(0.5);
+    const ultText = this.add.text(0, 75, `[Q] ${ultimateName}`, fontStyle('small', COLORS.warning)).setOrigin(0.5);
 
     // Selection indicator
-    const selector = this.add.text(0, -100, t('lobby.selected'), {
-      fontSize: '11px',
-      fill: '#ffff00',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    const selector = this.add.text(0, -100, t('lobby.selected'), fontStyle('small', COLORS.warning)).setOrigin(0.5);
     selector.setVisible(classType === this.selectedClass);
 
     container.add([glow, bg, sprite, nameText, quickStatsText, ultText, selector]);
@@ -705,12 +668,7 @@ export class LobbyScene extends Phaser.Scene {
     // Small players list on the right
     const container = this.add.container(this.W - 100, 200);
 
-    const title = this.add.text(0, 0, t('lobby.players'), {
-      fontSize: '12px',
-      fill: '#ffff00',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    const title = this.add.text(0, 0, t('lobby.players'), fontStyle('small', COLORS.warning)).setOrigin(0.5);
 
     container.add(title);
     parentContainer.add(container);
@@ -728,11 +686,7 @@ export class LobbyScene extends Phaser.Scene {
       const isMe = player.id === SocketManager.playerId;
       const stats = PLAYER_CLASSES[player.classType || 'MESSI'];
 
-      const text = this.add.text(0, y, player.name.substring(0, 8), {
-        fontSize: '11px',
-        fill: isMe ? '#ffff00' : stats?.color || '#ffffff',
-        fontFamily: 'Courier New',
-      }).setOrigin(0.5);
+      const text = this.add.text(0, y, player.name.substring(0, 8), fontStyle('small', isMe ? COLORS.warning : (stats?.color || COLORS.text))).setOrigin(0.5);
 
       this.miniPlayersContainer.add(text);
     });

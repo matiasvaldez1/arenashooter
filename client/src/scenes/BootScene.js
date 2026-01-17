@@ -1,6 +1,7 @@
 import { SpriteGenerator } from '../utils/SpriteGenerator.js';
 import { SocketManager } from '../network/SocketManager.js';
 import { t } from '../utils/i18n.js';
+import { COLORS, fontStyle } from '../config/theme.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -8,11 +9,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    const loadingText = this.add.text(400, 300, t('boot.loading'), {
-      fontSize: '24px',
-      fill: '#ffffff',
-      fontFamily: 'Courier New',
-    });
+    const loadingText = this.add.text(400, 300, t('boot.loading'), fontStyle('heading', COLORS.text));
     loadingText.setOrigin(0.5);
   }
 
@@ -26,11 +23,7 @@ export class BootScene extends Phaser.Scene {
       .catch((error) => {
         console.error('Failed to connect:', error);
         this.add
-          .text(400, 350, t('boot.connectionFailed'), {
-            fontSize: '16px',
-            fill: '#ff4444',
-            fontFamily: 'Courier New',
-          })
+          .text(400, 350, t('boot.connectionFailed'), fontStyle('label', COLORS.danger))
           .setOrigin(0.5);
       });
   }

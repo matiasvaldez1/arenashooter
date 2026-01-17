@@ -1,7 +1,7 @@
 import { Player } from './Player.js';
 import { GameLoop } from './GameLoop.js';
-import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL, GAME_MODES, WAVE_CONFIG, PERKS, MAP_MODIFIERS, ARENA_CONFIG } from '../../shared/constants.js';
-import { MAPS, MOBS } from '../../shared/maps.js';
+import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL, GAME_MODES, WAVE_CONFIG, PERKS, MAP_MODIFIERS, ARENA_CONFIG, INFINITE_HORDE_CONFIG, TEAM_ABILITIES } from '../../shared/constants.js';
+import { MAPS, MOBS, BOSS_MOBS, MAP_HAZARDS } from '../../shared/maps.js';
 
 export class Room {
   constructor(code, io) {
@@ -40,6 +40,28 @@ export class Room {
     this.pendingPerkOffers = new Map();
     this.perkSelections = new Map();
     this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+
+    // Boss state for Infinite Horde mode
+    this.activeBoss = null;
+    this.bossesKilled = 0;
+
+    // Dynamic hazards state
+    this.dynamicHazards = [];
+    this.lastTrafficSpawn = 0;
+    this.lastEruptionTime = 0;
+    this.lastRockFallTime = 0;
+    this.lastLionSpawn = 0;
+    this.lastSpikeRise = 0;
+    this.activeCars = [];
+    this.activeLavaPools = [];
+    this.lions = [];
+
+    // Team abilities - combo damage tracking
+    this.recentDamageToMobs = new Map();
+    this.recentDamageToPlayers = new Map();
+
+    // Kill cam - track last kill for final kill replay
+    this.lastKill = null;
   }
 
   addPlayer(socket, name) {
@@ -139,6 +161,17 @@ export class Room {
       this.mobs = [];
     }
 
+    // Infinite Horde Mode initialization
+    if (this.gameMode === 'INFINITE_HORDE') {
+      this.rollMapModifiers(2);
+      this.waveNumber = 0;
+      this.waveState = 'idle';
+      this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+      this.activeBoss = null;
+      this.bossesKilled = 0;
+      this.mobs = [];
+    }
+
     // Start game loop
     this.gameLoop = new GameLoop(this);
     this.gameLoop.start();
@@ -155,7 +188,7 @@ export class Room {
     });
 
     // Start first wave after a short delay
-    if (this.gameMode === 'WAVE_SURVIVAL') {
+    if (this.gameMode === 'WAVE_SURVIVAL' || this.gameMode === 'INFINITE_HORDE') {
       const timeoutId = setTimeout(() => {
         this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
         if (this.gameStarted) {
@@ -237,6 +270,9 @@ export class Room {
       velocityX: 0,
       velocityY: 0,
       alive: true,
+      canCharge: mobConfig.canCharge || false,
+      lastChargeTime: 0,
+      isCharging: false,
     };
 
     this.mobs.push(mob);
@@ -246,15 +282,68 @@ export class Room {
   damageMob(mob, damage, attackerId) {
     if (!mob.alive) return;
 
-    mob.health -= damage;
+    const now = Date.now();
+    let finalDamage = damage;
+    let comboCount = 0;
+
+    // Track combo damage in cooperative modes
+    if ((this.gameMode === 'WAVE_SURVIVAL' || this.gameMode === 'INFINITE_HORDE') && TEAM_ABILITIES.COMBO_DAMAGE.enabled) {
+      const comboWindow = TEAM_ABILITIES.COMBO_DAMAGE.windowMs;
+
+      // Get or create damage tracking for this mob
+      if (!this.recentDamageToMobs.has(mob.id)) {
+        this.recentDamageToMobs.set(mob.id, []);
+      }
+
+      const recentHits = this.recentDamageToMobs.get(mob.id);
+
+      // Clean old hits
+      const validHits = recentHits.filter(hit => now - hit.time < comboWindow);
+
+      // Add current hit
+      if (attackerId) {
+        validHits.push({ time: now, attackerId });
+      }
+
+      this.recentDamageToMobs.set(mob.id, validHits);
+
+      // Count unique attackers
+      const uniqueAttackers = new Set(validHits.map(h => h.attackerId));
+      comboCount = uniqueAttackers.size;
+
+      // Apply combo bonus
+      if (comboCount >= 2) {
+        const bonus = TEAM_ABILITIES.COMBO_DAMAGE.bonuses[Math.min(comboCount, 4)] || 0;
+        finalDamage = Math.floor(damage * (1 + bonus));
+
+        // Emit combo hit event
+        this.io.to(this.code).emit('combo:hit', {
+          mobId: mob.id,
+          comboCount,
+          bonusDamage: finalDamage - damage,
+          x: mob.x,
+          y: mob.y,
+        });
+
+        // Apply stun at 4 players
+        if (comboCount >= 4 && TEAM_ABILITIES.COMBO_DAMAGE.stunAt4 && !mob.stunned) {
+          mob.stunned = true;
+          mob.stunnedUntil = now + TEAM_ABILITIES.COMBO_DAMAGE.stunDuration;
+        }
+      }
+    }
+
+    mob.health -= finalDamage;
 
     this.io.to(this.code).emit('mob:hit', {
       id: mob.id,
-      damage,
+      damage: finalDamage,
       health: mob.health,
+      comboCount,
     });
 
     if (mob.health <= 0) {
+      this.recentDamageToMobs.delete(mob.id);
       this.killMob(mob, attackerId);
     }
   }
@@ -262,11 +351,17 @@ export class Room {
   killMob(mob, killerId) {
     mob.alive = false;
 
+    // Check if this is a boss death
+    const isBoss = mob.isBoss;
+
     // Award points to killer
     const killer = this.players.get(killerId);
     if (killer) {
-      killer.score += 5; // Mobs give 5 points
-      killer.addUltimateCharge(10); // Mobs give ultimate charge
+      const points = isBoss ? 50 : 5; // Bosses give 50 points
+      killer.score += points;
+
+      const ultCharge = isBoss ? (mob.ultimateCharge || 25) : 10;
+      killer.addUltimateCharge(ultCharge);
 
       // Handle explosive kills perk
       if (killer.perks && killer.perks.EXPLOSIVE_KILLS) {
@@ -275,9 +370,45 @@ export class Room {
       }
     }
 
+    // Handle boss death rewards
+    if (isBoss) {
+      this.activeBoss = null;
+      this.bossesKilled++;
+
+      // Spawn guaranteed powerup on boss death
+      if (mob.dropsPowerup) {
+        const powerupTypes = Object.keys(POWERUPS);
+        const type = powerupTypes[Math.floor(Math.random() * powerupTypes.length)];
+        const powerup = {
+          id: `powerup_boss_${Date.now()}`,
+          type,
+          x: mob.x,
+          y: mob.y,
+          createdAt: Date.now(),
+        };
+        this.powerups.push(powerup);
+        this.io.to(this.code).emit('powerup:spawn', powerup);
+      }
+
+      // Give all alive players ultimate charge on boss kill
+      for (const player of this.players.values()) {
+        if (player.alive && player.id !== killerId) {
+          player.addUltimateCharge(10);
+        }
+      }
+
+      this.io.to(this.code).emit('boss:death', {
+        id: mob.id,
+        killerId,
+        bossType: mob.type,
+        bossesKilled: this.bossesKilled,
+      });
+    }
+
     this.io.to(this.code).emit('mob:death', {
       id: mob.id,
       killerId,
+      isBoss,
     });
 
     // Remove mob from array
@@ -292,6 +423,14 @@ export class Room {
       this.waveStats.totalMobsKilled++;
       this.checkWaveCompletion();
       return; // No respawn in wave mode
+    }
+
+    // Infinite Horde Mode - check wave completion
+    if (this.gameMode === 'INFINITE_HORDE') {
+      this.waveStats.mobsKilled++;
+      this.waveStats.totalMobsKilled++;
+      this.checkWaveCompletion();
+      return; // No respawn in horde mode
     }
 
     // Arena Mode - Schedule respawn with tracked timeout
@@ -827,8 +966,19 @@ export class Room {
         y: m.y,
         health: m.health,
         maxHealth: m.maxHealth,
+        isBoss: m.isBoss,
+        isElite: m.isElite,
+        scale: m.scale,
+        isCharging: m.isCharging,
       })),
       timeRemaining: this.getTimeRemaining(),
+      activeBoss: this.activeBoss ? {
+        id: this.activeBoss.id,
+        type: this.activeBoss.type,
+        health: this.activeBoss.health,
+        maxHealth: this.activeBoss.maxHealth,
+      } : null,
+      isBossWave: this.isBossWave ? this.isBossWave() : false,
     };
   }
 
@@ -843,6 +993,21 @@ export class Room {
     const killer = this.players.get(killerId);
     if (killer && killer.id !== player.id) {
       killer.addKill();
+
+      // Track last kill for final kill replay
+      this.lastKill = {
+        killerId: killer.id,
+        killerName: killer.name,
+        killerClass: killer.classType,
+        killerX: killer.x,
+        killerY: killer.y,
+        victimId: player.id,
+        victimName: player.name,
+        victimClass: player.classType,
+        victimX: player.x,
+        victimY: player.y,
+        timestamp: Date.now(),
+      };
 
       // Check kill streak announcements
       const streak = KILL_STREAKS[killer.killStreak];
@@ -965,6 +1130,12 @@ export class Room {
   }
 
   startNextWave() {
+    // Use Infinite Horde specific logic if in that mode
+    if (this.gameMode === 'INFINITE_HORDE') {
+      this.startInfiniteHordeWave();
+      return;
+    }
+
     this.waveNumber++;
     this.waveState = 'active';
     this.waveStartTime = Date.now();
@@ -998,6 +1169,11 @@ export class Room {
   }
 
   spawnWaveMob() {
+    // Use Infinite Horde specific logic if in that mode
+    if (this.gameMode === 'INFINITE_HORDE') {
+      return this.spawnInfiniteHordeMob();
+    }
+
     if (this.waveMobsSpawned >= this.waveMobsToSpawn) return null;
     if (this.mobs.length >= WAVE_CONFIG.MAX_MOBS_ALIVE) return null;
 
@@ -1178,6 +1354,7 @@ export class Room {
       finalWave: this.waveNumber,
       totalMobsKilled: this.waveStats.totalMobsKilled,
       scores: this.getScores(),
+      finalKill: this.lastKill,
     });
   }
 
@@ -1189,7 +1366,187 @@ export class Room {
       mobsRemaining: this.mobs.length,
       mobsToSpawn: this.waveMobsToSpawn - this.waveMobsSpawned,
       modifiers: this.activeModifiers,
+      isBossWave: this.isBossWave(),
+      activeBoss: this.activeBoss,
+      bossesKilled: this.bossesKilled,
     };
+  }
+
+  // ==========================================
+  // INFINITE HORDE MODE METHODS
+  // ==========================================
+
+  isBossWave() {
+    if (this.gameMode !== 'INFINITE_HORDE') return false;
+    return this.waveNumber > 0 && this.waveNumber % INFINITE_HORDE_CONFIG.BOSS_EVERY_N_WAVES === 0;
+  }
+
+  spawnBoss() {
+    const bossTypes = Object.keys(BOSS_MOBS);
+    const bossType = bossTypes[Math.floor(Math.random() * bossTypes.length)];
+    const bossConfig = BOSS_MOBS[bossType];
+
+    // Spawn at random edge of arena
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
+    switch (edge) {
+      case 0: x = 100; y = GAME_CONFIG.HEIGHT / 2; break; // Left
+      case 1: x = GAME_CONFIG.WIDTH - 100; y = GAME_CONFIG.HEIGHT / 2; break; // Right
+      case 2: x = GAME_CONFIG.WIDTH / 2; y = 100; break; // Top
+      case 3: x = GAME_CONFIG.WIDTH / 2; y = GAME_CONFIG.HEIGHT - 100; break; // Bottom
+    }
+
+    // Scale boss health based on wave number
+    const healthScale = Math.pow(INFINITE_HORDE_CONFIG.HEALTH_SCALING, Math.floor(this.waveNumber / 3));
+    const scaledHealth = Math.floor(bossConfig.health * healthScale);
+
+    const boss = {
+      id: `boss_${Date.now()}`,
+      type: bossType,
+      x,
+      y,
+      health: scaledHealth,
+      maxHealth: scaledHealth,
+      targetId: null,
+      lastAttackTime: 0,
+      velocityX: 0,
+      velocityY: 0,
+      alive: true,
+      isBoss: true,
+      dropsPowerup: bossConfig.dropsPowerup,
+      ultimateCharge: bossConfig.ultimateCharge,
+      scale: bossConfig.scale,
+      canCharge: bossConfig.canCharge,
+      lastChargeTime: 0,
+      isFlying: bossConfig.isFlying,
+      projectileSpeed: bossConfig.projectileSpeed,
+    };
+
+    this.mobs.push(boss);
+    this.activeBoss = boss;
+    this.waveMobsSpawned++;
+
+    this.io.to(this.code).emit('boss:spawn', {
+      ...boss,
+      bossConfig: {
+        name: bossConfig.name,
+        nameEn: bossConfig.nameEn,
+        color: bossConfig.color,
+        scale: bossConfig.scale,
+      },
+    });
+
+    return boss;
+  }
+
+  startInfiniteHordeWave() {
+    this.waveNumber++;
+    this.waveState = 'active';
+    this.waveStartTime = Date.now();
+    this.waveStats.mobsKilled = 0;
+
+    const isBossWave = this.isBossWave();
+
+    if (isBossWave) {
+      // Boss wave - only spawn boss + a few minions
+      this.waveMobsToSpawn = 1 + Math.floor(this.waveNumber / 5); // Boss + some minions
+    } else {
+      // Normal wave calculation
+      const baseMobs = INFINITE_HORDE_CONFIG.BASE_MOB_COUNT;
+      const increment = INFINITE_HORDE_CONFIG.MOB_INCREMENT_PER_WAVE;
+      this.waveMobsToSpawn = baseMobs + (this.waveNumber - 1) * increment;
+      this.waveMobsToSpawn = Math.min(this.waveMobsToSpawn, INFINITE_HORDE_CONFIG.MAX_SIMULTANEOUS_MOBS);
+    }
+
+    this.waveMobsSpawned = 0;
+    this.lastWaveMobSpawn = 0;
+
+    // Apply shield perks at wave start
+    for (const player of this.players.values()) {
+      if (player.perks && player.perks.SHIELD_ON_WAVE) {
+        const shieldsToAdd = PERKS.SHIELD_ON_WAVE.effect.waveShieldHits * player.perks.SHIELD_ON_WAVE;
+        player.shieldHits = Math.min((player.shieldHits || 0) + shieldsToAdd, 10);
+      }
+    }
+
+    console.log(`Infinite Horde Wave ${this.waveNumber} starting in room ${this.code}: ${this.waveMobsToSpawn} mobs, boss wave: ${isBossWave}`);
+
+    this.io.to(this.code).emit('wave:start', {
+      waveNumber: this.waveNumber,
+      mobCount: this.waveMobsToSpawn,
+      modifiers: this.activeModifiers,
+      isBossWave,
+      gameMode: 'INFINITE_HORDE',
+    });
+
+    // Spawn boss immediately if boss wave
+    if (isBossWave) {
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+        if (this.gameStarted && this.waveState === 'active') {
+          this.spawnBoss();
+        }
+      }, 1000);
+      this.pendingTimeouts.push(timeoutId);
+    }
+  }
+
+  spawnInfiniteHordeMob() {
+    if (this.waveMobsSpawned >= this.waveMobsToSpawn) return null;
+    if (this.mobs.length >= INFINITE_HORDE_CONFIG.MAX_SIMULTANEOUS_MOBS) return null;
+
+    // Don't spawn regular mobs if boss is still alive
+    if (this.isBossWave() && this.activeBoss && this.waveMobsSpawned > 0) {
+      return null;
+    }
+
+    // Select mob type based on wave
+    const mobTypes = Object.keys(MOBS);
+    let mobType;
+
+    if (this.waveNumber <= 3) {
+      mobType = mobTypes.filter(t => MOBS[t].health <= 40)[0] || mobTypes[0];
+    } else if (this.waveNumber <= 8) {
+      const available = mobTypes.filter(t => MOBS[t].health <= 60);
+      mobType = available[Math.floor(Math.random() * available.length)] || mobTypes[0];
+    } else {
+      mobType = mobTypes[Math.floor(Math.random() * mobTypes.length)];
+    }
+
+    // Check for elite spawn
+    let isElite = false;
+    const eliteChance = INFINITE_HORDE_CONFIG.ELITE_CHANCE_BASE +
+      (this.waveNumber - 1) * INFINITE_HORDE_CONFIG.ELITE_CHANCE_INCREMENT +
+      (this.hasModifier('ELITE_SWARM') ? MAP_MODIFIERS.ELITE_SWARM.effect.eliteChanceBonus : 0);
+
+    if (Math.random() < eliteChance) {
+      isElite = true;
+    }
+
+    const mob = this.spawnMob(mobType);
+    if (mob) {
+      // Apply wave scaling
+      const healthScale = Math.pow(INFINITE_HORDE_CONFIG.HEALTH_SCALING, this.waveNumber - 1);
+      mob.health = Math.floor(mob.health * healthScale);
+      mob.maxHealth = mob.health;
+
+      // Apply elite bonus
+      if (isElite) {
+        mob.health = Math.floor(mob.health * WAVE_CONFIG.ELITE_HEALTH_MULTIPLIER);
+        mob.maxHealth = mob.health;
+        mob.isElite = true;
+      }
+
+      // Apply fast mobs modifier
+      if (this.hasModifier('FAST_MOBS')) {
+        mob.speedMultiplier = MAP_MODIFIERS.FAST_MOBS.effect.mobSpeedMultiplier;
+      }
+
+      this.waveMobsSpawned++;
+      this.io.to(this.code).emit('mob:spawn', mob);
+    }
+
+    return mob;
   }
 
   // ==========================================
@@ -1227,6 +1584,7 @@ export class Room {
       reason: 'time',
       winner: winner,
       scores: scores,
+      finalKill: this.lastKill,
     });
 
     // Stop the game loop
@@ -1272,6 +1630,13 @@ export class Room {
     this.pendingPerkOffers.clear();
     this.perkSelections.clear();
     this.waveStats = { mobsKilled: 0, totalMobsKilled: 0 };
+
+    // Reset boss state
+    this.activeBoss = null;
+    this.bossesKilled = 0;
+
+    // Reset kill cam state
+    this.lastKill = null;
 
     // Reset players (keep them in the room but reset stats)
     for (const player of this.players.values()) {

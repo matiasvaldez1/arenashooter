@@ -2,6 +2,7 @@ import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
 import { GAME_CONFIG } from '../../../shared/constants.js';
 import { t, toggleLanguage, getLanguage } from '../utils/i18n.js';
+import { COLORS, fontStyle } from '../config/theme.js';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -33,9 +34,7 @@ export class MenuScene extends Phaser.Scene {
 
     // Name label
     this.add.rectangle(this.centerX, y, 280, 30, 0x000000, 0.5);
-    this.nameLabelText = this.add.text(this.centerX, y, t('menu.enterName'), {
-      fontSize: '18px', fill: '#00ff88', fontFamily: 'Courier New'
-    }).setOrigin(0.5);
+    this.nameLabelText = this.add.text(this.centerX, y, t('menu.enterName'), fontStyle('body', COLORS.success)).setOrigin(0.5);
     this.translatableTexts.push({ text: this.nameLabelText, key: 'menu.enterName' });
 
     y += this.gap;
@@ -52,18 +51,14 @@ export class MenuScene extends Phaser.Scene {
     y += this.gap + 10;
 
     // Divider
-    this.dividerText = this.add.text(this.centerX, y, t('menu.or'), {
-      fontSize: '16px', fill: '#888888', fontFamily: 'Courier New'
-    }).setOrigin(0.5);
+    this.dividerText = this.add.text(this.centerX, y, t('menu.or'), fontStyle('label', COLORS.textDim)).setOrigin(0.5);
     this.translatableTexts.push({ text: this.dividerText, key: 'menu.or' });
 
     y += this.gap - 10;
 
     // Room code label
     this.add.rectangle(this.centerX, y, 280, 30, 0x000000, 0.5);
-    this.roomLabelText = this.add.text(this.centerX, y, t('menu.enterRoomCode'), {
-      fontSize: '18px', fill: '#ffaa00', fontFamily: 'Courier New'
-    }).setOrigin(0.5);
+    this.roomLabelText = this.add.text(this.centerX, y, t('menu.enterRoomCode'), fontStyle('body', COLORS.warning)).setOrigin(0.5);
     this.translatableTexts.push({ text: this.roomLabelText, key: 'menu.enterRoomCode' });
 
     y += this.gap;
@@ -79,11 +74,7 @@ export class MenuScene extends Phaser.Scene {
 
     // Status text
     this.statusText = this.add
-      .text(this.centerX, GAME_CONFIG.HEIGHT - 60, '', {
-        fontSize: '18px',
-        fill: '#ff4444',
-        fontFamily: 'Courier New',
-      })
+      .text(this.centerX, GAME_CONFIG.HEIGHT - 60, '', fontStyle('body', COLORS.danger))
       .setOrigin(0.5);
 
     // Start music button
@@ -451,11 +442,7 @@ export class MenuScene extends Phaser.Scene {
 
     // Add label
     this.musicLabel = this.add
-      .text(baseX + 20, 55, t('menu.volume'), {
-        fontSize: '10px',
-        fill: '#666666',
-        fontFamily: 'Courier New',
-      })
+      .text(baseX + 20, 55, t('menu.volume'), fontStyle('small', COLORS.textDim))
       .setOrigin(0.5);
     this.translatableTexts.push({ text: this.musicLabel, key: 'menu.volume' });
   }
@@ -494,11 +481,7 @@ export class MenuScene extends Phaser.Scene {
 
     // Add label
     this.langLabel = this.add
-      .text(50, 55, t('misc.language'), {
-        fontSize: '10px',
-        fill: '#666666',
-        fontFamily: 'Courier New',
-      })
+      .text(50, 55, t('misc.language'), fontStyle('small', COLORS.textDim))
       .setOrigin(0.5);
     this.translatableTexts.push({ text: this.langLabel, key: 'misc.language' });
   }
@@ -571,7 +554,7 @@ export class MenuScene extends Phaser.Scene {
 
   showError(message) {
     this.statusText.setText(message);
-    this.statusText.setStyle({ fill: '#ff4444' });
+    this.statusText.setStyle({ fill: COLORS.danger });
 
     // Shake effect
     this.cameras.main.shake(200, 0.01);

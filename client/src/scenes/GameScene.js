@@ -1,8 +1,9 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES, PERKS, MAP_MODIFIERS } from '../../../shared/constants.js';
-import { MAPS, MOBS } from '../../../shared/maps.js';
+import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES, PERKS, MAP_MODIFIERS, INFINITE_HORDE_CONFIG } from '../../../shared/constants.js';
+import { MAPS, MOBS, BOSS_MOBS } from '../../../shared/maps.js';
 import { t } from '../utils/i18n.js';
+import { COLORS, fontStyle } from '../config/theme.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -36,6 +37,10 @@ export class GameScene extends Phaser.Scene {
     // Arena mode timer (synced from server)
     this.serverTimeRemaining = null;
     this.gameEnded = false;
+
+    // Boss state for Infinite Horde mode
+    this.activeBoss = null;
+    this.isBossWave = false;
   }
 
   create() {
@@ -242,7 +247,7 @@ export class GameScene extends Phaser.Scene {
       this.updateUltimateUI();
 
       // Wave survival UI updates
-      if (this.gameMode === 'WAVE_SURVIVAL') {
+      if (this.gameMode === 'WAVE_SURVIVAL' || this.gameMode === 'INFINITE_HORDE') {
         // Update mobs remaining
         const mobCount = state.mobs ? state.mobs.length : 0;
         if (this.mobsRemainingText && this.mobsRemaining !== mobCount) {
@@ -256,6 +261,16 @@ export class GameScene extends Phaser.Scene {
         // Update fog of war position
         if (this.fogGraphics) {
           this.updateFogOfWar();
+        }
+
+        // Update boss health bar for Infinite Horde
+        if (this.gameMode === 'INFINITE_HORDE' && state.activeBoss && this.bossHealthContainer) {
+          this.bossHealthContainer.setVisible(true);
+          const healthPercent = state.activeBoss.health / state.activeBoss.maxHealth;
+          this.bossHealthBarFill.setScale(healthPercent, 1);
+          this.bossHealthText.setText(`${state.activeBoss.health} / ${state.activeBoss.maxHealth}`);
+        } else if (this.gameMode === 'INFINITE_HORDE' && !state.activeBoss && this.bossHealthContainer) {
+          this.bossHealthContainer.setVisible(false);
         }
       }
 
@@ -335,6 +350,7 @@ export class GameScene extends Phaser.Scene {
     SocketManager.on('powerup:collected', (data) => {
       this.destroyPowerup(data.id);
       if (data.playerId === SocketManager.playerId) {
+        SoundManager.playPowerup();
         this.showPowerupNotification(data.type);
       }
     });
@@ -448,6 +464,57 @@ export class GameScene extends Phaser.Scene {
 
     SocketManager.on('wave:gameOver', (data) => {
       this.onWaveGameOver(data);
+    });
+
+    // Boss events (Infinite Horde mode)
+    SocketManager.on('boss:spawn', (data) => {
+      this.onBossSpawn(data);
+    });
+
+    SocketManager.on('boss:death', (data) => {
+      this.onBossDeath(data);
+    });
+
+    SocketManager.on('boss:charge', (data) => {
+      this.onBossCharge(data);
+    });
+
+    SocketManager.on('mob:charge', (data) => {
+      this.onMobCharge(data);
+    });
+
+    SocketManager.on('boss:shoot', (data) => {
+      this.onBossShoot(data);
+    });
+
+    // Dynamic hazard events
+    SocketManager.on('hazard:carSpawn', (data) => {
+      this.onCarSpawn(data);
+    });
+
+    SocketManager.on('hazard:warning', (data) => {
+      this.onHazardWarning(data);
+    });
+
+    SocketManager.on('hazard:lavaPool', (data) => {
+      this.onLavaPoolSpawn(data);
+    });
+
+    SocketManager.on('hazard:lavaPoolExpire', (data) => {
+      this.onLavaPoolExpire(data);
+    });
+
+    SocketManager.on('hazard:rockImpact', (data) => {
+      this.onRockImpact(data);
+    });
+
+    SocketManager.on('hazard:spikeRise', (data) => {
+      this.onSpikeRise(data);
+    });
+
+    // Team combo events
+    SocketManager.on('combo:hit', (data) => {
+      this.onComboHit(data);
     });
 
     // Arena mode game end
@@ -574,13 +641,24 @@ export class GameScene extends Phaser.Scene {
 
         // Update health bar
         const healthPercent = mob.health / mob.maxHealth;
-        localMob.healthBarFill.setScale(healthPercent * 0.8, 0.8);
+        const scale = mob.isBoss ? 1.5 : 0.8;
+        localMob.healthBarFill.setScale(healthPercent * scale, scale);
+
+        // Update boss health UI if this is the boss
+        if (mob.isBoss && this.bossHealthBarFill) {
+          const bossHealthPercent = mob.health / mob.maxHealth;
+          this.bossHealthBarFill.setScale(bossHealthPercent, 1);
+          if (this.bossHealthText) {
+            this.bossHealthText.setText(`${mob.health} / ${mob.maxHealth}`);
+          }
+        }
       }
     }
   }
 
   createMob(data) {
-    const mobConfig = MOBS[data.type];
+    // Get config from either regular mobs or boss mobs
+    const mobConfig = data.isBoss ? BOSS_MOBS[data.type] : MOBS[data.type];
     if (!mobConfig) return;
 
     // Create mob container for all parts
@@ -608,7 +686,7 @@ export class GameScene extends Phaser.Scene {
       const sign = this.add.rectangle(0, -55, 40, 20, 0xffffff);
       sign.setStrokeStyle(2, 0x000000);
       const signText = this.add.text(0, -55, '¡FUERA!', {
-        fontSize: '10px', fill: '#ff0000', fontStyle: 'bold'
+        ...fontStyle('small', COLORS.danger), fontStyle: 'bold'
       }).setOrigin(0.5);
 
       container.add([body, head, signPole, sign, signText]);
@@ -686,28 +764,135 @@ export class GameScene extends Phaser.Scene {
       container.add([cart]);
       container.sprite = cart;
 
+    } else if (data.type === 'LION' || data.isLion) {
+      // === LION: Colosseum hazard ===
+      const body = this.add.ellipse(0, 5, 45, 30, 0xDAA520);
+      body.setStrokeStyle(2, 0xB8860B);
+      // Head
+      const head = this.add.circle(20, -5, 18, 0xDAA520);
+      head.setStrokeStyle(2, 0xB8860B);
+      // Mane
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        this.add.circle(
+          20 + Math.cos(angle) * 22,
+          -5 + Math.sin(angle) * 18,
+          8, 0x8B4513, 0.8
+        );
+      }
+      // Face
+      this.add.circle(28, -8, 4, 0x000000); // Eye
+      this.add.ellipse(35, 0, 8, 5, 0x4a3a20); // Nose
+      // Tail
+      this.add.rectangle(-30, 5, 20, 4, 0xDAA520).setRotation(-0.3);
+      this.add.circle(-40, 0, 6, 0x8B4513);
+      // Legs
+      this.add.rectangle(-15, 25, 8, 18, 0xDAA520);
+      this.add.rectangle(10, 25, 8, 18, 0xDAA520);
+
+      container.add([body, head]);
+      container.sprite = body;
+
+    } else if (data.isBoss && data.type === 'MEGA_BEAR') {
+      // === MEGA BEAR BOSS ===
+      const body = this.add.ellipse(0, 5, 80, 70, 0x8B0000);
+      body.setStrokeStyle(5, 0x5a0000);
+      const head = this.add.circle(0, -40, 35, 0x9a1a1a);
+      head.setStrokeStyle(3, 0x5a0000);
+      // Ears
+      this.add.circle(-25, -70, 15, 0x8B0000);
+      this.add.circle(25, -70, 15, 0x8B0000);
+      // Snout
+      this.add.ellipse(0, -30, 20, 14, 0x6a0a0a);
+      // Eyes (glowing red)
+      const eye1 = this.add.circle(-15, -50, 8, 0xff0000);
+      const eye2 = this.add.circle(15, -50, 8, 0xff0000);
+      this.tweens.add({ targets: [eye1, eye2], alpha: 0.5, duration: 500, yoyo: true, repeat: -1 });
+      // Claws
+      for (let i = 0; i < 4; i++) {
+        this.add.rectangle(-35 + i * 10, 45, 6, 15, 0x333333);
+        this.add.rectangle(15 + i * 10, 45, 6, 15, 0x333333);
+      }
+      container.add([body, head]);
+      container.sprite = body;
+      container.setScale(data.scale || 2.5);
+
+    } else if (data.isBoss && data.type === 'TANK') {
+      // === TANK BOSS ===
+      const hull = this.add.rectangle(0, 0, 100, 50, 0x444444);
+      hull.setStrokeStyle(4, 0x222222);
+      const turret = this.add.rectangle(0, -15, 40, 30, 0x555555);
+      turret.setStrokeStyle(2, 0x333333);
+      // Cannon
+      this.add.rectangle(40, -15, 50, 12, 0x333333);
+      // Tracks
+      this.add.rectangle(0, 30, 110, 15, 0x222222);
+      this.add.rectangle(0, -5, 110, 15, 0x222222);
+      // Track details
+      for (let i = 0; i < 8; i++) {
+        this.add.rectangle(-50 + i * 14, 30, 4, 18, 0x111111);
+      }
+      container.add([hull, turret]);
+      container.sprite = hull;
+      container.setScale(data.scale || 2.0);
+
+    } else if (data.isBoss && data.type === 'HELICOPTER') {
+      // === HELICOPTER BOSS ===
+      const body = this.add.ellipse(0, 0, 80, 35, 0x2F4F4F);
+      body.setStrokeStyle(3, 0x1a2a2a);
+      // Cockpit
+      const cockpit = this.add.ellipse(25, 0, 30, 25, 0x87CEEB, 0.7);
+      // Tail
+      this.add.rectangle(-50, 0, 40, 10, 0x2F4F4F);
+      this.add.ellipse(-70, 0, 20, 15, 0x3a5a5a);
+      // Main rotor
+      const rotor = this.add.rectangle(0, -25, 100, 6, 0x222222);
+      this.tweens.add({ targets: rotor, rotation: Math.PI * 2, duration: 100, repeat: -1 });
+      // Tail rotor
+      const tailRotor = this.add.rectangle(-70, 0, 4, 20, 0x222222);
+      this.tweens.add({ targets: tailRotor, rotation: Math.PI * 2, duration: 50, repeat: -1 });
+      // Missiles
+      this.add.rectangle(-10, 20, 8, 20, 0xff4444);
+      this.add.rectangle(10, 20, 8, 20, 0xff4444);
+      container.add([body, cockpit, rotor, tailRotor]);
+      container.sprite = body;
+      container.setScale(data.scale || 2.2);
+
     } else {
       // Default fallback
-      const sprite = this.add.circle(0, 0, 20, Phaser.Display.Color.HexStringToColor(mobConfig.color).color);
-      sprite.setStrokeStyle(3, 0x000000);
+      const sprite = this.add.circle(0, 0, data.isBoss ? 40 : 20, Phaser.Display.Color.HexStringToColor(mobConfig.color).color);
+      sprite.setStrokeStyle(data.isBoss ? 5 : 3, 0x000000);
       container.add([sprite]);
       container.sprite = sprite;
+      if (data.scale) container.setScale(data.scale);
     }
 
-    // Health bar (for all mobs)
-    const healthBarBg = this.add.rectangle(data.x, data.y - 45, 40, 6, 0x000000);
-    const healthBarFill = this.add.rectangle(data.x, data.y - 45, 38, 4, 0xff0000);
+    // Health bar (for all mobs) - bigger for bosses
+    const barWidth = data.isBoss ? 80 : 40;
+    const barHeight = data.isBoss ? 10 : 6;
+    const barOffset = data.isBoss ? -80 : -45;
+    const healthBarBg = this.add.rectangle(data.x, data.y + barOffset, barWidth, barHeight, 0x000000);
+    healthBarBg.setStrokeStyle(data.isBoss ? 2 : 1, data.isBoss ? 0xff0000 : 0x333333);
+    const healthBarFill = this.add.rectangle(data.x, data.y + barOffset, barWidth - 4, barHeight - 2, data.isBoss ? 0xff4400 : 0xff0000);
     healthBarFill.setOrigin(0, 0.5);
-    healthBarFill.x = data.x - 19;
+    healthBarFill.x = data.x - (barWidth / 2) + 2;
 
-    // Name tag
-    const nameTag = this.add.text(data.x, data.y - 55, mobConfig.name, {
-      fontSize: '10px',
+    // Name tag - bigger for bosses
+    const fontSize = data.isBoss ? '14px' : '10px';
+    const nameTag = this.add.text(data.x, data.y + barOffset - 15, mobConfig.name, {
+      fontSize,
       fill: mobConfig.color,
       fontFamily: 'Courier New',
+      fontStyle: data.isBoss ? 'bold' : 'normal',
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: data.isBoss ? 4 : 2,
     }).setOrigin(0.5);
+
+    // Add elite indicator
+    if (data.isElite) {
+      nameTag.setText(`★ ${mobConfig.name}`);
+      nameTag.setStyle({ fill: '#ffff00' });
+    }
 
     this.mobs[data.id] = {
       sprite: container,
@@ -720,6 +905,8 @@ export class GameScene extends Phaser.Scene {
       health: data.health,
       maxHealth: data.maxHealth,
       type: data.type,
+      isBoss: data.isBoss,
+      isElite: data.isElite,
     };
   }
 
@@ -1001,6 +1188,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createTurret(data) {
+    SoundManager.playAbility('TRUMP', 'TURRET');
+
     const turret = this.add.image(data.x, data.y, 'turret');
     turret.setScale(1.2);
     turret.id = data.id;
@@ -1008,6 +1197,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createBear(data) {
+    SoundManager.playAbility('PUTIN', 'BEAR');
+
     // Putin's bear turret
     const bear = this.add.image(data.x, data.y, 'bear');
     bear.setScale(1.5);
@@ -1067,7 +1258,7 @@ export class GameScene extends Phaser.Scene {
       onComplete: () => slashGraphics.destroy(),
     });
 
-    SoundManager.playHit();
+    SoundManager.playAbility('MILEI', 'CHAINSAW');
   }
 
   destroyTurret(id) {
@@ -1079,6 +1270,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createBarrier(data) {
+    SoundManager.playAbility('TRUMP', 'WALL');
+
     const barrier = this.add.image(data.x, data.y, 'barrier');
     barrier.setScale(data.width / 48, data.height / 48);
     barrier.id = data.id;
@@ -1114,6 +1307,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   createHealZone(data) {
+    SoundManager.playAbility('BIDEN', 'HEAL');
+
     const zone = this.add.image(data.x, data.y, 'heal_zone');
     zone.setScale(data.radius / 40);
     zone.id = data.id;
@@ -1285,6 +1480,8 @@ export class GameScene extends Phaser.Scene {
   onPlayerDash(data) {
     const player = this.localPlayers[data.playerId];
     if (player) {
+      SoundManager.playAbility('MESSI', 'DASH');
+
       // Dash trail
       for (let i = 0; i < 5; i++) {
         const t = i / 5;
@@ -1314,6 +1511,8 @@ export class GameScene extends Phaser.Scene {
   onPlayerDodge(data) {
     const player = this.localPlayers[data.playerId];
     if (player) {
+      SoundManager.playDodge();
+
       // Ghost/afterimage effect
       const ghost = this.add.sprite(data.fromX, data.fromY, player.sprite.texture.key);
       ghost.setScale(player.sprite.scaleX);
@@ -1497,6 +1696,12 @@ export class GameScene extends Phaser.Scene {
     const player = this.localPlayers[data.playerId];
     if (!player) return;
 
+    // Play ultimate sound
+    const stats = PLAYER_CLASSES[player.classType];
+    if (stats?.ultimate) {
+      SoundManager.playUltimate(stats.ultimate);
+    }
+
     // Big flash effect
     const flash = this.add.circle(player.sprite.x, player.sprite.y, 100, 0xffffff, 0.8);
     flash.setDepth(150);
@@ -1509,7 +1714,6 @@ export class GameScene extends Phaser.Scene {
     });
 
     // Show ultimate name
-    const stats = PLAYER_CLASSES[player.classType];
     const ultimate = ULTIMATES[stats?.ultimate];
     if (ultimate) {
       const ultText = this.add
@@ -1690,10 +1894,190 @@ export class GameScene extends Phaser.Scene {
     } else if (this.mapId === 'MAR_A_LAGO') {
       // Golf course effects
       this.createMarALagoEffects();
+    } else if (this.mapId === 'OBELISCO') {
+      // Buenos Aires obelisk with traffic
+      this.createObeliscoEffects();
+    } else if (this.mapId === 'COLISEO') {
+      // Roman colosseum
+      this.createColiseoEffects();
+    } else if (this.mapId === 'VOLCANO') {
+      // Active volcano
+      this.createVolcanoEffects();
     }
 
     // Display map name at start
     this.showMapName();
+  }
+
+  createObeliscoEffects() {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Road lanes (gray asphalt)
+    this.add.rectangle(W / 2, 180, W, 70, 0x333333, 0.9).setDepth(-2);
+    this.add.rectangle(W / 2, 250, W, 70, 0x333333, 0.9).setDepth(-2);
+    this.add.rectangle(W / 2, 520, W, 70, 0x333333, 0.9).setDepth(-2);
+    this.add.rectangle(W / 2, 590, W, 70, 0x333333, 0.9).setDepth(-2);
+
+    // Lane markings
+    for (let x = 0; x < W; x += 80) {
+      this.add.rectangle(x + 40, 215, 40, 4, 0xffff00, 0.6).setDepth(-1);
+      this.add.rectangle(x + 40, 555, 40, 4, 0xffff00, 0.6).setDepth(-1);
+    }
+
+    // The Obelisk (center)
+    const obeliskBase = this.add.rectangle(W / 2, 410, 80, 40, 0xeeeeee, 0.95);
+    obeliskBase.setStrokeStyle(2, 0xcccccc);
+    const obeliskBody = this.add.rectangle(W / 2, 340, 50, 140, 0xffffff, 0.95);
+    obeliskBody.setStrokeStyle(2, 0xdddddd);
+    const obeliskTop = this.add.triangle(W / 2, 245, 0, 50, 50, 50, 25, 0, 0xffffff);
+    obeliskTop.setStrokeStyle(2, 0xdddddd);
+
+    // Safe zone highlight around obelisk
+    const safeZone = this.add.ellipse(W / 2, 360, 200, 150);
+    safeZone.setStrokeStyle(3, 0x00ff00, 0.3);
+    safeZone.setDepth(-1);
+
+    // Traffic warning signs
+    this.add.text(100, 140, '⚠️ TRAFICO', { fontSize: '14px', fill: '#ffff00', fontStyle: 'bold' });
+    this.add.text(W - 150, 140, '⚠️ TRAFICO', { fontSize: '14px', fill: '#ffff00', fontStyle: 'bold' });
+
+    // Animated traffic cars container
+    this.trafficCars = this.add.container(0, 0);
+    this.trafficCars.setDepth(10);
+  }
+
+  createColiseoEffects() {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Stone arena floor pattern
+    for (let x = 0; x < W; x += 80) {
+      for (let y = 100; y < H - 50; y += 80) {
+        const tile = this.add.rectangle(x + 40, y + 40, 75, 75, 0x8B7355, 0.3);
+        tile.setStrokeStyle(1, 0x5a4a35, 0.5);
+        tile.setDepth(-3);
+      }
+    }
+
+    // Colosseum walls (oval shape)
+    const wallOuter = this.add.ellipse(W / 2, H / 2, W - 100, H - 100);
+    wallOuter.setStrokeStyle(20, 0x8B7355, 0.8);
+    wallOuter.setDepth(-2);
+
+    // Arches on walls
+    for (let angle = 0; angle < Math.PI * 2; angle += 0.3) {
+      const x = W / 2 + Math.cos(angle) * (W / 2 - 60);
+      const y = H / 2 + Math.sin(angle) * (H / 2 - 60);
+      const arch = this.add.rectangle(x, y, 25, 35, 0x4a3a25, 0.8);
+      arch.setRotation(angle);
+      arch.setDepth(-1);
+    }
+
+    // Central arena floor (darker)
+    const arenaFloor = this.add.ellipse(W / 2, H / 2, 300, 200, 0x6a5a45, 0.5);
+    arenaFloor.setDepth(-2);
+
+    // Lion gate entrances
+    this.add.rectangle(60, H / 2, 60, 80, 0x3a2a15, 0.9).setDepth(-1);
+    this.add.rectangle(W - 60, H / 2, 60, 80, 0x3a2a15, 0.9).setDepth(-1);
+    this.add.text(60, H / 2, '🦁', { fontSize: '24px' }).setOrigin(0.5);
+    this.add.text(W - 60, H / 2, '🦁', { fontSize: '24px' }).setOrigin(0.5);
+
+    // Spike trap warning zones
+    this.spikeZones = this.add.container(0, 0);
+    this.spikeZones.setDepth(5);
+  }
+
+  createVolcanoEffects() {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    // Volcanic ground (dark with cracks)
+    for (let i = 0; i < 20; i++) {
+      const crack = this.add.graphics();
+      crack.lineStyle(2, 0xff4400, 0.4);
+      const startX = Math.random() * W;
+      const startY = Math.random() * H;
+      crack.moveTo(startX, startY);
+      for (let j = 0; j < 5; j++) {
+        crack.lineTo(
+          startX + (Math.random() - 0.5) * 150,
+          startY + Math.random() * 80
+        );
+      }
+      crack.strokePath();
+      crack.setDepth(-2);
+    }
+
+    // Central lava pool (permanent)
+    const lavaPool = this.add.ellipse(W / 2, H / 2 - 30, 180, 80, 0xff4400, 0.8);
+    lavaPool.setDepth(-1);
+    this.tweens.add({
+      targets: lavaPool,
+      fillColor: 0xff6600,
+      duration: 500,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    // Lava bubbles
+    for (let i = 0; i < 5; i++) {
+      const bubble = this.add.circle(
+        W / 2 + (Math.random() - 0.5) * 120,
+        H / 2 - 30 + (Math.random() - 0.5) * 50,
+        8, 0xffaa00, 0.8
+      );
+      bubble.setDepth(0);
+      this.tweens.add({
+        targets: bubble,
+        y: bubble.y - 30,
+        alpha: 0,
+        scale: 1.5,
+        duration: 1000 + Math.random() * 500,
+        repeat: -1,
+        delay: Math.random() * 1000,
+      });
+    }
+
+    // Volcano crater rim
+    const craterRim = this.add.ellipse(W / 2, 50, 300, 60, 0x4a3a30, 0.9);
+    craterRim.setDepth(-1);
+
+    // Smoke rising from crater
+    for (let i = 0; i < 8; i++) {
+      const smoke = this.add.circle(
+        W / 2 + (Math.random() - 0.5) * 200,
+        80,
+        30 + Math.random() * 20,
+        0x666666, 0.3
+      );
+      smoke.setDepth(-1);
+      this.tweens.add({
+        targets: smoke,
+        y: -50,
+        alpha: 0,
+        scale: 2,
+        duration: 3000 + Math.random() * 2000,
+        repeat: -1,
+        delay: Math.random() * 2000,
+      });
+    }
+
+    // Warning text
+    this.add.text(W / 2, H - 30, '⚠️ ZONA VOLCANICA - PELIGRO ⚠️', {
+      fontSize: '16px',
+      fill: '#ff4400',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(200);
+
+    // Dynamic hazard containers
+    this.lavaPools = this.add.container(0, 0);
+    this.lavaPools.setDepth(5);
+    this.fallingRocks = this.add.container(0, 0);
+    this.fallingRocks.setDepth(50);
   }
 
   createCongresoEffects() {
@@ -2256,6 +2640,11 @@ export class GameScene extends Phaser.Scene {
     if (this.gameMode === 'WAVE_SURVIVAL') {
       this.createWaveSurvivalUI();
     }
+
+    // Infinite Horde UI
+    if (this.gameMode === 'INFINITE_HORDE') {
+      this.createInfiniteHordeUI();
+    }
   }
 
   createWaveSurvivalUI() {
@@ -2326,12 +2715,7 @@ export class GameScene extends Phaser.Scene {
     if (this.activeModifiers.length === 0) return;
 
     // Title
-    const title = this.add.text(0, 0, 'MODIFIERS', {
-      fontSize: '12px',
-      fill: '#ff8800',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    }).setOrigin(0.5);
+    const title = this.add.text(0, 0, 'MODIFIERS', fontStyle('small', COLORS.warning)).setOrigin(0.5);
     this.modifiersContainer.add(title);
 
     // List modifiers
@@ -2339,13 +2723,662 @@ export class GameScene extends Phaser.Scene {
       const mod = MAP_MODIFIERS[modId];
       if (!mod) return;
 
-      const modText = this.add.text(0, 20 + i * 20, mod.name, {
-        fontSize: '11px',
-        fill: mod.color || '#ffffff',
-        fontFamily: 'Courier New',
-      }).setOrigin(0.5);
+      const modText = this.add.text(0, 20 + i * 20, mod.name, fontStyle('small', mod.color || COLORS.text)).setOrigin(0.5);
       this.modifiersContainer.add(modText);
     });
+  }
+
+  createInfiniteHordeUI() {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+    const centerX = W / 2;
+
+    // Wave counter (top center)
+    const waveBg = this.add.rectangle(centerX, 30, 200, 50, 0x000000, 0.8);
+    waveBg.setStrokeStyle(2, 0xff4400);
+    waveBg.setScrollFactor(0);
+    waveBg.setDepth(200);
+
+    this.waveText = this.add
+      .text(centerX, 25, 'WAVE 1', {
+        fontSize: '28px',
+        fill: '#ff4400',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(201);
+
+    this.mobsRemainingText = this.add
+      .text(centerX, 45, 'Mobs: 0', {
+        fontSize: '14px',
+        fill: '#ff8844',
+        fontFamily: 'Courier New',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(201);
+
+    // Boss health bar (hidden by default, shown when boss spawns)
+    this.bossHealthContainer = this.add.container(centerX, 80);
+    this.bossHealthContainer.setScrollFactor(0);
+    this.bossHealthContainer.setDepth(250);
+    this.bossHealthContainer.setVisible(false);
+
+    const bossBarBg = this.add.rectangle(0, 0, 400, 25, 0x000000, 0.9);
+    bossBarBg.setStrokeStyle(3, 0xff0000);
+    this.bossHealthContainer.add(bossBarBg);
+
+    this.bossHealthBarFill = this.add.rectangle(-198, 0, 396, 21, 0xff4400);
+    this.bossHealthBarFill.setOrigin(0, 0.5);
+    this.bossHealthContainer.add(this.bossHealthBarFill);
+
+    this.bossNameText = this.add.text(0, -25, 'BOSS', {
+      fontSize: '18px',
+      fill: '#ff4400',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5);
+    this.bossHealthContainer.add(this.bossNameText);
+
+    this.bossHealthText = this.add.text(0, 0, '', {
+      fontSize: '14px',
+      fill: '#ffffff',
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5);
+    this.bossHealthContainer.add(this.bossHealthText);
+
+    // Modifiers display (right side)
+    this.modifiersContainer = this.add.container(W - 100, 80);
+    this.modifiersContainer.setScrollFactor(0);
+    this.modifiersContainer.setDepth(200);
+    this.createModifiersDisplay();
+
+    // Perks display (left side below score)
+    this.perksContainer = this.add.container(15, 80);
+    this.perksContainer.setScrollFactor(0);
+    this.perksContainer.setDepth(200);
+
+    // Perk selection overlay (hidden by default)
+    this.perkSelectionContainer = this.add.container(centerX, H / 2);
+    this.perkSelectionContainer.setScrollFactor(0);
+    this.perkSelectionContainer.setDepth(500);
+    this.perkSelectionContainer.setVisible(false);
+
+    // Game over overlay (hidden by default)
+    this.gameOverContainer = this.add.container(centerX, H / 2);
+    this.gameOverContainer.setScrollFactor(0);
+    this.gameOverContainer.setDepth(600);
+    this.gameOverContainer.setVisible(false);
+
+    // Fog of war overlay (if modifier active)
+    if (this.activeModifiers.includes('FOG_OF_WAR')) {
+      this.createFogOfWar();
+    }
+  }
+
+  // Boss event handlers
+  onBossSpawn(data) {
+    this.activeBoss = data;
+    this.isBossWave = true;
+
+    // Show boss health bar
+    if (this.bossHealthContainer) {
+      this.bossHealthContainer.setVisible(true);
+      this.bossNameText.setText(data.bossConfig?.name || 'BOSS');
+      this.bossHealthText.setText(`${data.health} / ${data.maxHealth}`);
+      this.bossHealthBarFill.setScale(1, 1);
+    }
+
+    // Boss wave announcement
+    this.showBossWaveAnnouncement(data);
+
+    // Screen shake
+    this.cameras.main.shake(500, 0.02);
+  }
+
+  showBossWaveAnnouncement(data) {
+    const centerX = GAME_CONFIG.WIDTH / 2;
+    const centerY = GAME_CONFIG.HEIGHT / 2;
+
+    // Warning text
+    const warning = this.add
+      .text(centerX, centerY - 50, '⚠ BOSS WAVE ⚠', {
+        fontSize: '48px',
+        fill: '#ff0000',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(400)
+      .setAlpha(0)
+      .setScale(0.5);
+
+    // Boss name
+    const bossName = this.add
+      .text(centerX, centerY + 20, data.bossConfig?.name || 'UNKNOWN BOSS', {
+        fontSize: '36px',
+        fill: '#ff4400',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(400)
+      .setAlpha(0);
+
+    // Animate in
+    this.tweens.add({
+      targets: [warning, bossName],
+      alpha: 1,
+      scale: 1,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Pulse effect
+        this.tweens.add({
+          targets: warning,
+          scale: 1.1,
+          duration: 200,
+          yoyo: true,
+          repeat: 2,
+          onComplete: () => {
+            this.time.delayedCall(500, () => {
+              this.tweens.add({
+                targets: [warning, bossName],
+                alpha: 0,
+                y: '-=30',
+                duration: 300,
+                onComplete: () => {
+                  warning.destroy();
+                  bossName.destroy();
+                },
+              });
+            });
+          },
+        });
+      },
+    });
+
+    // Red flash
+    this.cameras.main.flash(200, 255, 0, 0);
+  }
+
+  onBossDeath(data) {
+    this.activeBoss = null;
+
+    // Hide boss health bar
+    if (this.bossHealthContainer) {
+      this.bossHealthContainer.setVisible(false);
+    }
+
+    // Victory announcement
+    const centerX = GAME_CONFIG.WIDTH / 2;
+    const centerY = GAME_CONFIG.HEIGHT / 2;
+
+    const victory = this.add
+      .text(centerX, centerY, '💀 BOSS DEFEATED! 💀', {
+        fontSize: '42px',
+        fill: '#00ff00',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 6,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(400)
+      .setScale(0);
+
+    this.tweens.add({
+      targets: victory,
+      scale: 1.2,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: victory,
+          scale: 1,
+          alpha: 0,
+          y: centerY - 50,
+          duration: 1500,
+          delay: 1000,
+          onComplete: () => victory.destroy(),
+        });
+      },
+    });
+
+    // Green flash + screen shake
+    this.cameras.main.flash(300, 0, 255, 0);
+    this.cameras.main.shake(300, 0.015);
+  }
+
+  onBossCharge(data) {
+    const mob = this.mobs[data.mobId];
+    if (!mob) return;
+
+    // Warning indicator at charge destination
+    const warning = this.add.circle(data.targetX, data.targetY, 40, 0xff0000, 0.3);
+    warning.setStrokeStyle(3, 0xff0000);
+    warning.setDepth(50);
+
+    this.tweens.add({
+      targets: warning,
+      scale: 1.5,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => warning.destroy(),
+    });
+
+    // Flash the boss
+    if (mob.container) {
+      this.tweens.add({
+        targets: mob.container,
+        scaleX: mob.container.scaleX * 1.2,
+        scaleY: mob.container.scaleY * 0.8,
+        duration: 100,
+        yoyo: true,
+      });
+    }
+  }
+
+  onMobCharge(data) {
+    const mob = this.mobs[data.mobId];
+    if (!mob) return;
+
+    // Warning line from mob to target
+    const line = this.add.graphics();
+    line.lineStyle(3, 0xff4444, 0.8);
+    line.setDepth(45);
+
+    const startX = mob.container ? mob.container.x : data.targetX;
+    const startY = mob.container ? mob.container.y : data.targetY;
+
+    line.moveTo(startX, startY);
+    line.lineTo(data.targetX, data.targetY);
+    line.strokePath();
+
+    // Target circle
+    const targetCircle = this.add.circle(data.targetX, data.targetY, 25, 0xff4444, 0.2);
+    targetCircle.setStrokeStyle(2, 0xff4444);
+    targetCircle.setDepth(45);
+
+    this.tweens.add({
+      targets: [line, targetCircle],
+      alpha: 0,
+      duration: 400,
+      onComplete: () => {
+        line.destroy();
+        targetCircle.destroy();
+      },
+    });
+
+    // Flash the mob
+    if (mob.container) {
+      this.tweens.add({
+        targets: mob.container,
+        scaleX: 1.3,
+        scaleY: 0.7,
+        duration: 80,
+        yoyo: true,
+      });
+    }
+
+    // Dust particles at start
+    for (let i = 0; i < 5; i++) {
+      const dust = this.add.circle(
+        startX + (Math.random() - 0.5) * 20,
+        startY + 15,
+        3 + Math.random() * 3,
+        0x8B7355,
+        0.7
+      );
+      dust.setDepth(44);
+
+      this.tweens.add({
+        targets: dust,
+        y: dust.y - 20 - Math.random() * 15,
+        alpha: 0,
+        scale: 0.3,
+        duration: 300 + Math.random() * 200,
+        onComplete: () => dust.destroy(),
+      });
+    }
+  }
+
+  onBossShoot(data) {
+    const mob = this.mobs[data.mobId];
+    if (!mob) return;
+
+    // Muzzle flash effect
+    const flash = this.add.circle(mob.container.x + 30, mob.container.y, 15, 0xffff00, 1);
+    flash.setDepth(100);
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scale: 2,
+      duration: 150,
+      onComplete: () => flash.destroy(),
+    });
+  }
+
+  // Dynamic hazard handlers
+  onCarSpawn(data) {
+    if (!this.trafficCars) return;
+
+    // Create car visual
+    const car = this.add.container(data.x, data.y);
+
+    // Car body
+    const body = this.add.rectangle(0, 0, data.width, data.height, 0xffff00);
+    body.setStrokeStyle(2, 0x000000);
+
+    // Wheels
+    this.add.circle(-25, 15, 8, 0x333333).setStrokeStyle(2, 0x000000);
+    this.add.circle(25, 15, 8, 0x333333).setStrokeStyle(2, 0x000000);
+    this.add.circle(-25, -15, 8, 0x333333).setStrokeStyle(2, 0x000000);
+    this.add.circle(25, -15, 8, 0x333333).setStrokeStyle(2, 0x000000);
+
+    // Windshield
+    const windshield = this.add.rectangle(data.speed > 0 ? 20 : -20, 0, 15, 25, 0x87CEEB, 0.7);
+
+    car.add([body, windshield]);
+    car.setData('carId', data.id);
+    car.setData('speed', data.speed);
+
+    this.trafficCars.add(car);
+
+    // Animate car across screen
+    const targetX = data.speed > 0 ? GAME_CONFIG.WIDTH + 100 : -100;
+    const duration = Math.abs(targetX - data.x) / Math.abs(data.speed) * 1000;
+
+    this.tweens.add({
+      targets: car,
+      x: targetX,
+      duration,
+      onComplete: () => car.destroy(),
+    });
+  }
+
+  onHazardWarning(data) {
+    // Warning indicator before hazard
+    const warning = this.add.container(data.x, data.y);
+    warning.setDepth(100);
+
+    // Warning circle
+    const circle = this.add.circle(0, 0, data.radius, 0xff0000, 0.2);
+    circle.setStrokeStyle(3, 0xff0000, 0.8);
+    warning.add(circle);
+
+    // Warning icon
+    const icon = this.add.text(0, 0, '⚠️', { fontSize: '32px' }).setOrigin(0.5);
+    warning.add(icon);
+
+    // Warning text
+    let hazardName = data.type;
+    if (data.type === 'ERUPTION') hazardName = 'LAVA';
+    if (data.type === 'FALLING_ROCKS') hazardName = 'ROCAS';
+    if (data.type === 'RISING_SPIKES') hazardName = 'PINCHOS';
+
+    const text = this.add.text(0, -50, hazardName, {
+      fontSize: '14px',
+      fill: '#ff0000',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+    warning.add(text);
+
+    // Pulse animation
+    this.tweens.add({
+      targets: circle,
+      scale: 1.2,
+      alpha: 0.1,
+      duration: 300,
+      yoyo: true,
+      repeat: Math.floor(data.warningTime / 600),
+    });
+
+    // Remove after warning time
+    this.time.delayedCall(data.warningTime, () => {
+      this.tweens.add({
+        targets: warning,
+        alpha: 0,
+        duration: 200,
+        onComplete: () => warning.destroy(),
+      });
+    });
+  }
+
+  onLavaPoolSpawn(data) {
+    if (!this.lavaPools) {
+      this.lavaPools = this.add.container(0, 0);
+      this.lavaPools.setDepth(5);
+    }
+
+    // Create lava pool
+    const pool = this.add.container(data.x, data.y);
+    pool.setData('poolId', data.id);
+
+    // Lava circle
+    const lava = this.add.circle(0, 0, data.radius, 0xff4400, 0.8);
+    lava.setStrokeStyle(3, 0xff0000);
+    pool.add(lava);
+
+    // Bubbling effect
+    for (let i = 0; i < 4; i++) {
+      const bubble = this.add.circle(
+        (Math.random() - 0.5) * data.radius,
+        (Math.random() - 0.5) * data.radius,
+        5, 0xffaa00, 0.9
+      );
+      pool.add(bubble);
+
+      this.tweens.add({
+        targets: bubble,
+        y: bubble.y - 20,
+        alpha: 0,
+        scale: 1.5,
+        duration: 500,
+        repeat: -1,
+        delay: Math.random() * 500,
+      });
+    }
+
+    // Pulsing glow
+    this.tweens.add({
+      targets: lava,
+      fillColor: 0xff6600,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+    });
+
+    this.lavaPools.add(pool);
+
+    // Screen shake
+    this.cameras.main.shake(200, 0.01);
+  }
+
+  onLavaPoolExpire(data) {
+    if (!this.lavaPools) return;
+
+    const pools = this.lavaPools.getAll();
+    for (const pool of pools) {
+      if (pool.getData('poolId') === data.id) {
+        this.tweens.add({
+          targets: pool,
+          alpha: 0,
+          scale: 0.5,
+          duration: 500,
+          onComplete: () => pool.destroy(),
+        });
+        break;
+      }
+    }
+  }
+
+  onRockImpact(data) {
+    // Rock impact effect
+    const impact = this.add.container(data.x, data.y);
+    impact.setDepth(100);
+
+    // Impact circle
+    const circle = this.add.circle(0, 0, data.radius, 0x8B4513, 0.6);
+    circle.setStrokeStyle(4, 0x4a2a13);
+    impact.add(circle);
+
+    // Rock debris
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const rock = this.add.circle(0, 0, 8 + Math.random() * 8, 0x6a4a33);
+      impact.add(rock);
+
+      this.tweens.add({
+        targets: rock,
+        x: Math.cos(angle) * (data.radius + 50),
+        y: Math.sin(angle) * (data.radius + 50),
+        alpha: 0,
+        duration: 500,
+      });
+    }
+
+    // Screen shake
+    this.cameras.main.shake(300, 0.02);
+
+    // Fade out
+    this.tweens.add({
+      targets: impact,
+      alpha: 0,
+      duration: 1000,
+      delay: 500,
+      onComplete: () => impact.destroy(),
+    });
+  }
+
+  onSpikeRise(data) {
+    // Spike rise effect
+    const spikes = this.add.container(data.x, data.y);
+    spikes.setDepth(100);
+
+    // Spike circle
+    const base = this.add.circle(0, 0, data.radius, 0x444444, 0.4);
+    base.setStrokeStyle(3, 0x333333);
+    spikes.add(base);
+
+    // Spike triangles
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const dist = data.radius * 0.6;
+      const spike = this.add.triangle(
+        Math.cos(angle) * dist,
+        Math.sin(angle) * dist,
+        0, 0, 10, 25, -10, 25,
+        0x666666
+      );
+      spike.setRotation(angle + Math.PI);
+      spike.setScale(0);
+      spikes.add(spike);
+
+      // Spike rise animation
+      this.tweens.add({
+        targets: spike,
+        scaleX: 1,
+        scaleY: 1,
+        duration: 200,
+        delay: i * 50,
+      });
+    }
+
+    // Screen shake
+    this.cameras.main.shake(200, 0.015);
+
+    // Retract after delay
+    this.time.delayedCall(1500, () => {
+      this.tweens.add({
+        targets: spikes,
+        alpha: 0,
+        scaleY: 0,
+        duration: 300,
+        onComplete: () => spikes.destroy(),
+      });
+    });
+  }
+
+  onComboHit(data) {
+    // Show combo hit effect
+    const comboColors = {
+      2: '#ffff00',
+      3: '#ff8800',
+      4: '#ff0000',
+    };
+
+    const color = comboColors[Math.min(data.comboCount, 4)] || '#ffff00';
+
+    // Combo text
+    const comboText = this.add.text(data.x, data.y - 40, `COMBO x${data.comboCount}!`, {
+      fontSize: '20px',
+      fill: color,
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(150);
+
+    // Bonus damage text
+    if (data.bonusDamage > 0) {
+      const bonusText = this.add.text(data.x, data.y - 60, `+${data.bonusDamage}`, {
+        fontSize: '16px',
+        fill: '#00ff00',
+        fontFamily: 'Courier New',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(150);
+
+      this.tweens.add({
+        targets: bonusText,
+        y: bonusText.y - 30,
+        alpha: 0,
+        duration: 800,
+        onComplete: () => bonusText.destroy(),
+      });
+    }
+
+    // Animate combo text
+    this.tweens.add({
+      targets: comboText,
+      y: comboText.y - 50,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => comboText.destroy(),
+    });
+
+    // Ring effect for x4 combo
+    if (data.comboCount >= 4) {
+      const ring = this.add.circle(data.x, data.y, 20, 0xff0000, 0);
+      ring.setStrokeStyle(4, 0xff0000);
+      ring.setDepth(100);
+
+      this.tweens.add({
+        targets: ring,
+        scale: 3,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => ring.destroy(),
+      });
+    }
   }
 
   createFogOfWar() {
@@ -2470,9 +3503,7 @@ export class GameScene extends Phaser.Scene {
 
     // Description
     const descText = this.add.text(0, 30, perk.description, {
-      fontSize: '11px',
-      fill: '#aaaaaa',
-      fontFamily: 'Courier New',
+      ...fontStyle('small', COLORS.textMuted),
       wordWrap: { width: width - 20 },
       align: 'center',
     }).setOrigin(0.5);
@@ -2502,14 +3533,16 @@ export class GameScene extends Phaser.Scene {
     this.perkSelectionContainer.setVisible(false);
   }
 
-  showWaveStartAnimation(waveNumber) {
+  showWaveStartAnimation(waveNumber, isBossWave = false) {
     const centerX = GAME_CONFIG.WIDTH / 2;
     const centerY = GAME_CONFIG.HEIGHT / 2;
+
+    const color = isBossWave ? '#ff4400' : (this.gameMode === 'INFINITE_HORDE' ? '#ff4400' : '#00ffff');
 
     const waveAnnounce = this.add
       .text(centerX, centerY, `WAVE ${waveNumber}`, {
         fontSize: '64px',
-        fill: '#00ffff',
+        fill: color,
         fontFamily: 'Courier New',
         fontStyle: 'bold',
         stroke: '#000000',
@@ -2618,12 +3651,7 @@ export class GameScene extends Phaser.Scene {
     if (perkIds.length === 0) return;
 
     // Title
-    const title = this.add.text(0, 0, 'PERKS', {
-      fontSize: '12px',
-      fill: '#00ff88',
-      fontFamily: 'Courier New',
-      fontStyle: 'bold',
-    });
+    const title = this.add.text(0, 0, 'PERKS', fontStyle('small', COLORS.success));
     this.perksContainer.add(title);
 
     // List perks
@@ -2632,11 +3660,7 @@ export class GameScene extends Phaser.Scene {
       const stacks = localPlayer.perks[perkId];
       if (!perk || !stacks) return;
 
-      const perkText = this.add.text(0, 18 + i * 16, `${perk.name} x${stacks}`, {
-        fontSize: '11px',
-        fill: '#88ff88',
-        fontFamily: 'Courier New',
-      });
+      const perkText = this.add.text(0, 18 + i * 16, `${perk.name} x${stacks}`, fontStyle('small', COLORS.success));
       this.perksContainer.add(perkText);
     });
   }
@@ -2645,6 +3669,7 @@ export class GameScene extends Phaser.Scene {
   onWaveStart(data) {
     this.waveNumber = data.waveNumber;
     this.mobsRemaining = data.mobCount;
+    this.isBossWave = data.isBossWave || false;
 
     if (this.waveText) {
       this.waveText.setText(`WAVE ${this.waveNumber}`);
@@ -2654,7 +3679,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.hidePerkSelection();
-    this.showWaveStartAnimation(this.waveNumber);
+
+    // Show boss wave or regular wave animation
+    if (this.isBossWave && this.gameMode === 'INFINITE_HORDE') {
+      // Boss wave will be announced when boss spawns
+      this.showWaveStartAnimation(this.waveNumber, true);
+    } else {
+      this.showWaveStartAnimation(this.waveNumber, false);
+    }
   }
 
   onWaveComplete(data) {
@@ -2673,14 +3705,139 @@ export class GameScene extends Phaser.Scene {
   }
 
   onWaveGameOver(data) {
-    this.showGameOver(data.finalWave, data.stats);
+    const stats = {
+      totalKills: data.totalMobsKilled || 0,
+      perksCollected: 0,
+      timeSurvived: 0,
+    };
+    if (data.finalKill) {
+      this.showFinalKill(data.finalKill, () => {
+        this.showGameOver(data.finalWave, stats);
+      });
+    } else {
+      this.showGameOver(data.finalWave, stats);
+    }
   }
 
   onArenaGameEnd(data) {
     if (this.gameEnded) return;
     this.gameEnded = true;
 
-    this.showArenaResults(data.winner, data.scores);
+    if (data.finalKill) {
+      this.showFinalKill(data.finalKill, () => {
+        this.showArenaResults(data.winner, data.scores);
+      });
+    } else {
+      this.showArenaResults(data.winner, data.scores);
+    }
+  }
+
+  showFinalKill(killData, onComplete) {
+    const W = GAME_CONFIG.WIDTH;
+    const H = GAME_CONFIG.HEIGHT;
+
+    this.finalKillContainer = this.add.container(W / 2, H / 2);
+    this.finalKillContainer.setDepth(600);
+
+    // Dark overlay with red tint
+    const overlay = this.add.rectangle(0, 0, W, H, 0x110000, 0.85);
+    this.finalKillContainer.add(overlay);
+
+    // "FINAL KILL" title with dramatic effect
+    const finalKillText = this.add.text(0, -100, t('game.finalKill'), {
+      fontSize: '64px',
+      fill: '#ff0000',
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+      stroke: '#ffff00',
+      strokeThickness: 4,
+    }).setOrigin(0.5).setAlpha(0);
+    this.finalKillContainer.add(finalKillText);
+
+    // Killer info
+    const killerClass = PLAYER_CLASSES[killData.killerClass];
+    const killerColor = killerClass ? killerClass.color : '#ffffff';
+    const killerText = this.add.text(0, 0, killData.killerName, {
+      fontSize: '36px',
+      fill: killerColor,
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5).setAlpha(0);
+    this.finalKillContainer.add(killerText);
+
+    // VS arrow
+    const vsText = this.add.text(0, 45, '▼', {
+      fontSize: '24px',
+      fill: '#ff4444',
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5).setAlpha(0);
+    this.finalKillContainer.add(vsText);
+
+    // Victim info (eliminated player)
+    const victimClass = PLAYER_CLASSES[killData.victimClass];
+    const victimColor = victimClass ? victimClass.color : '#888888';
+    const victimText = this.add.text(0, 90, `☠ ${killData.victimName}`, {
+      fontSize: '28px',
+      fill: victimColor,
+      fontFamily: 'Courier New',
+    }).setOrigin(0.5).setAlpha(0);
+    this.finalKillContainer.add(victimText);
+
+    // Dramatic screen shake
+    this.cameras.main.shake(500, 0.02);
+
+    // Animate elements in sequence
+    this.tweens.add({
+      targets: finalKillText,
+      alpha: 1,
+      scale: { from: 2, to: 1 },
+      duration: 400,
+      ease: 'Back.easeOut',
+    });
+
+    this.tweens.add({
+      targets: killerText,
+      alpha: 1,
+      y: { from: 30, to: 0 },
+      duration: 300,
+      delay: 400,
+      ease: 'Power2',
+    });
+
+    this.tweens.add({
+      targets: vsText,
+      alpha: 1,
+      duration: 200,
+      delay: 600,
+    });
+
+    this.tweens.add({
+      targets: victimText,
+      alpha: 1,
+      y: { from: 60, to: 90 },
+      duration: 300,
+      delay: 700,
+      ease: 'Power2',
+    });
+
+    // Flash red
+    this.cameras.main.flash(300, 255, 0, 0);
+
+    // After 3 seconds, fade out and show results
+    this.time.delayedCall(3000, () => {
+      this.tweens.add({
+        targets: this.finalKillContainer,
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          if (this.finalKillContainer) {
+            this.finalKillContainer.destroy();
+            this.finalKillContainer = null;
+          }
+          if (onComplete) onComplete();
+        },
+      });
+    });
   }
 
   showArenaResults(winner, scores) {
@@ -2804,11 +3961,7 @@ export class GameScene extends Phaser.Scene {
     hintsContainer.add(bg);
 
     hints.forEach((hint, i) => {
-      const text = this.add.text(5, i * 18, hint, {
-        fontSize: '12px',
-        fill: '#aaaaaa',
-        fontFamily: 'Courier New',
-      });
+      const text = this.add.text(5, i * 18, hint, fontStyle('small', COLORS.textMuted));
       hintsContainer.add(text);
     });
 
