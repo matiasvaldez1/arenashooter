@@ -3462,21 +3462,25 @@ export class GameScene extends Phaser.Scene {
       if (!perk) return;
 
       const cardX = startX + i * cardSpacing;
-      const card = this.createPerkCard(cardX, 0, perkId, perk, cardWidth);
-      this.perkSelectionContainer.add(card);
+      this.createPerkCard(cardX, 0, perkId, perk, cardWidth);
     });
   }
 
   createPerkCard(x, y, perkId, perk, width) {
-    const card = this.add.container(x, y);
     const height = 220;
 
-    // Background
-    const bg = this.add.rectangle(0, 0, width, height, 0x222244, 1);
+    // Background - add directly to scene, not container
+    const bg = this.add.rectangle(x, y, width, height, 0x222244, 1);
     bg.setStrokeStyle(3, 0x00ffff);
-    card.add(bg);
+    bg.setScrollFactor(0);
+    bg.setDepth(501);
 
-    // Icon (colored circle based on perk type)
+    // Adjust position relative to screen center
+    const centerX = GAME_CONFIG.WIDTH / 2;
+    const centerY = GAME_CONFIG.HEIGHT / 2;
+    bg.setPosition(centerX + x, centerY + y);
+
+    // Icon
     const iconColors = {
       DAMAGE_BOOST: 0xff4444,
       HEALTH_BOOST: 0x44ff44,
@@ -3489,11 +3493,12 @@ export class GameScene extends Phaser.Scene {
       PROJECTILE_SIZE: 0xaaaaaa,
       ULTIMATE_CHARGE: 0xff00ff,
     };
-    const icon = this.add.circle(0, -70, 25, iconColors[perkId] || 0xffffff);
-    card.add(icon);
+    const icon = this.add.circle(centerX + x, centerY + y - 70, 25, iconColors[perkId] || 0xffffff);
+    icon.setScrollFactor(0);
+    icon.setDepth(502);
 
     // Name
-    const nameText = this.add.text(0, -30, perk.name, {
+    const nameText = this.add.text(centerX + x, centerY + y - 30, perk.name, {
       fontSize: '14px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -3501,27 +3506,31 @@ export class GameScene extends Phaser.Scene {
       wordWrap: { width: width - 20 },
       align: 'center',
     }).setOrigin(0.5);
-    card.add(nameText);
+    nameText.setScrollFactor(0);
+    nameText.setDepth(502);
 
     // Description
-    const descText = this.add.text(0, 30, perk.description, {
+    const descText = this.add.text(centerX + x, centerY + y + 30, perk.description, {
       ...fontStyle('small', COLORS.textMuted),
       wordWrap: { width: width - 20 },
       align: 'center',
     }).setOrigin(0.5);
-    card.add(descText);
+    descText.setScrollFactor(0);
+    descText.setDepth(502);
 
-    // Make card container interactive (more reliable than nested rectangle)
-    card.setSize(width, height);
-    card.setInteractive({ useHandCursor: true });
+    // Add to container for easy cleanup
+    this.perkSelectionContainer.add([bg, icon, nameText, descText]);
 
-    card.on('pointerover', () => {
+    // Make bg rectangle interactive
+    bg.setInteractive({ useHandCursor: true });
+
+    bg.on('pointerover', () => {
       bg.setStrokeStyle(3, 0xffff00);
     });
-    card.on('pointerout', () => {
+    bg.on('pointerout', () => {
       bg.setStrokeStyle(3, 0x00ffff);
     });
-    card.on('pointerdown', () => {
+    bg.on('pointerdown', () => {
       if (!this.selectedPerkId) {
         this.selectedPerkId = perkId;
         SocketManager.selectPerk(perkId);
@@ -3529,8 +3538,6 @@ export class GameScene extends Phaser.Scene {
         bg.setStrokeStyle(3, 0x00ff00);
       }
     });
-
-    return card;
   }
 
   hidePerkSelection() {
