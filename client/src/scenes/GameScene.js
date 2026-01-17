@@ -94,6 +94,7 @@ export class GameScene extends Phaser.Scene {
 
     // ESC menu
     this.input.keyboard.on('keydown-ESC', () => {
+      if (this.perkSelectionActive || this.gameEnded) return;
       if (this.isPaused) this.hideEscMenu();
       else this.showEscMenu();
     });
@@ -3651,6 +3652,7 @@ export class GameScene extends Phaser.Scene {
   showPerkSelection(perks, timeRemaining) {
     this.perkSelectionActive = true;
     this.selectedPerkId = null;
+    this.perkSelectionEndTime = Date.now() + timeRemaining;
     this.perkSelectionContainer.removeAll(true);
     this.perkSelectionContainer.setVisible(true);
 
@@ -3746,6 +3748,8 @@ export class GameScene extends Phaser.Scene {
     bg.on('pointerdown', () => {
       if (!this.selectedPerkId) {
         this.selectedPerkId = perkId;
+        bg.disableInteractive();
+        bg.setFillStyle(0x444466);
         SocketManager.selectPerk(perkId);
         this.hidePerkSelection();
       }
@@ -3754,7 +3758,20 @@ export class GameScene extends Phaser.Scene {
 
   hidePerkSelection() {
     this.perkSelectionActive = false;
+    this.perkSelectionEndTime = null;
     this.perkSelectionContainer.setVisible(false);
+  }
+
+  updatePerkTimer() {
+    if (!this.perkSelectionActive || !this.perkTimerText || !this.perkSelectionEndTime) return;
+
+    const remaining = Math.max(0, this.perkSelectionEndTime - Date.now());
+    const seconds = Math.ceil(remaining / 1000);
+    this.perkTimerText.setText(`${t('game.time')} ${seconds}s`);
+
+    if (seconds <= 3) {
+      this.perkTimerText.setStyle({ fill: '#ff4444' });
+    }
   }
 
   showWaveStartAnimation(waveNumber, isBossWave = false) {
@@ -3858,6 +3875,8 @@ export class GameScene extends Phaser.Scene {
     btnBg.on('pointerover', () => btnBg.setFillStyle(0x6666aa));
     btnBg.on('pointerout', () => btnBg.setFillStyle(0x444488));
     btnBg.on('pointerdown', () => {
+      btnBg.disableInteractive();
+      btnText.setText(t('game.loading') || '...');
       SocketManager.returnToLobby();
     });
   }
@@ -4151,6 +4170,9 @@ export class GameScene extends Phaser.Scene {
     playAgainBg.on('pointerover', () => playAgainBg.setFillStyle(0x66aa66));
     playAgainBg.on('pointerout', () => playAgainBg.setFillStyle(0x448844));
     playAgainBg.on('pointerdown', () => {
+      playAgainBg.disableInteractive();
+      lobbyBg.disableInteractive();
+      playAgainText.setText(t('game.loading') || '...');
       SocketManager.playAgain();
     });
 
@@ -4171,6 +4193,9 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerover', () => lobbyBg.setFillStyle(0x6666aa));
     lobbyBg.on('pointerout', () => lobbyBg.setFillStyle(0x444488));
     lobbyBg.on('pointerdown', () => {
+      playAgainBg.disableInteractive();
+      lobbyBg.disableInteractive();
+      lobbyText.setText(t('game.loading') || '...');
       SocketManager.returnToLobby();
     });
   }
@@ -4316,6 +4341,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   sendInput() {
+    if (this.isPaused || this.perkSelectionActive || this.gameEnded) return;
+
     const pointer = this.input.activePointer;
     const myPlayer = this.localPlayers[SocketManager.playerId];
 
@@ -4357,6 +4384,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleShoot() {
+    if (this.isPaused || this.perkSelectionActive || this.gameEnded) return;
+
     const pointer = this.input.activePointer;
     const myPlayer = this.localPlayers[SocketManager.playerId];
 
@@ -4373,6 +4402,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleAbility() {
+    if (this.isPaused || this.perkSelectionActive || this.gameEnded) return;
+
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer || !myPlayer.alive) return;
 
@@ -4380,6 +4411,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   handleUltimate() {
+    if (this.isPaused || this.perkSelectionActive || this.gameEnded) return;
+
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer || !myPlayer.alive) return;
 
@@ -4426,6 +4459,9 @@ export class GameScene extends Phaser.Scene {
 
     // Update game timer (Arena mode)
     this.updateGameTimer();
+
+    // Update perk selection timer
+    this.updatePerkTimer();
 
     // Update player positions
     for (const [id, player] of Object.entries(this.localPlayers)) {
@@ -4586,6 +4622,31 @@ export class GameScene extends Phaser.Scene {
 
   shutdown() {
     SoundManager.stopDubstep();
+
+    // Remove all pending timers
+    this.time.removeAllEvents();
+
+    // Destroy UI containers
+    if (this.escMenuContainer) {
+      this.escMenuContainer.destroy();
+      this.escMenuContainer = null;
+    }
+    if (this.gameOverContainer) {
+      this.gameOverContainer.destroy();
+      this.gameOverContainer = null;
+    }
+    if (this.perkSelectionContainer) {
+      this.perkSelectionContainer.destroy();
+      this.perkSelectionContainer = null;
+    }
+    if (this.arenaResultsContainer) {
+      this.arenaResultsContainer.destroy();
+      this.arenaResultsContainer = null;
+    }
+    if (this.finalKillContainer) {
+      this.finalKillContainer.destroy();
+      this.finalKillContainer = null;
+    }
 
     // Remove all socket listeners
     const events = [

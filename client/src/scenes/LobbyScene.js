@@ -423,9 +423,10 @@ export class LobbyScene extends Phaser.Scene {
 
   createLargeMapCard(x, y, mapKey) {
     const map = MAPS[mapKey];
+    if (!map) return this.add.container(x, y);
     const isSpanish = getLanguage() === 'es-AR';
     const container = this.add.container(x, y);
-    const color = Phaser.Display.Color.HexStringToColor(map.color).color;
+    const color = Phaser.Display.Color.HexStringToColor(map.color || '#ffffff').color;
 
     // Glow
     const glow = this.add.rectangle(0, 0, 235, 145, color, 0.15);
@@ -573,7 +574,8 @@ export class LobbyScene extends Phaser.Scene {
   createLargeClassCard(x, y, classType) {
     const container = this.add.container(x, y);
     const stats = getCharacter(classType);
-    const color = Phaser.Display.Color.HexStringToColor(stats.color).color;
+    if (!stats) return container;
+    const color = Phaser.Display.Color.HexStringToColor(stats.color || '#ffffff').color;
 
     // Glow
     const glow = this.add.rectangle(0, 0, 185, 230, color, 0.15);
@@ -718,9 +720,11 @@ export class LobbyScene extends Phaser.Scene {
     this.players.forEach((player, index) => {
       const y = 25 + index * 22;
       const isMe = player.id === SocketManager.playerId;
-      const stats = getCharacter(player.classType || getCharacterList()[0]);
+      const defaultChar = getCharacterList()[0] || 'MESSI';
+      const stats = getCharacter(player.classType || defaultChar);
+      const playerColor = stats?.color || COLORS.text;
 
-      const text = this.add.text(0, y, player.name.substring(0, 8), fontStyle('small', isMe ? COLORS.warning : (stats?.color || COLORS.text))).setOrigin(0.5);
+      const text = this.add.text(0, y, player.name.substring(0, 8), fontStyle('small', isMe ? COLORS.warning : playerColor)).setOrigin(0.5);
 
       this.miniPlayersContainer.add(text);
     });
@@ -1140,6 +1144,12 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   shutdown() {
+    // Clear step indicators array
+    this.stepIndicators = [];
+
+    // Clear step containers
+    this.stepContainers = {};
+
     SocketManager.off('room:playerJoined');
     SocketManager.off('room:playerUpdated');
     SocketManager.off('room:playerLeft');

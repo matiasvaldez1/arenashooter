@@ -5,7 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
-import { ROOM_CONFIG } from '../shared/constants.js';
+import { ROOM_CONFIG, GAME_MODES } from '../shared/constants.js';
+import { MAPS } from '../shared/maps.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -139,6 +140,10 @@ io.on('connection', (socket) => {
     try {
       console.log(`Map selection request: ${mapId} for room ${socket.roomCode}`);
       if (!socket.roomCode) return;
+      if (!mapId || !MAPS[mapId]) {
+        console.warn(`Invalid mapId: ${mapId}`);
+        return;
+      }
       const room = rooms.get(socket.roomCode);
       if (room && !room.gameStarted) {
         if (room.setMap(mapId)) {
@@ -157,6 +162,10 @@ io.on('connection', (socket) => {
     try {
       console.log(`Game mode selection request: ${mode} for room ${socket.roomCode}`);
       if (!socket.roomCode) return;
+      if (!mode || !GAME_MODES[mode]) {
+        console.warn(`Invalid game mode: ${mode}`);
+        return;
+      }
       const room = rooms.get(socket.roomCode);
       if (room && !room.gameStarted) {
         if (room.setGameMode(mode)) {
@@ -174,6 +183,10 @@ io.on('connection', (socket) => {
   socket.on('room:changeStep', ({ step }) => {
     try {
       if (!socket.roomCode) return;
+      if (typeof step !== 'number' || step < 0 || step > 3) {
+        console.warn(`Invalid lobby step: ${step}`);
+        return;
+      }
       const room = rooms.get(socket.roomCode);
       if (room && !room.gameStarted) {
         const players = Array.from(room.players.keys());

@@ -215,6 +215,9 @@ export class Room {
     this.gameStartTime = 0;
     this.gameEnded = false;
 
+    // Lobby step state
+    this.lobbyStep = 0;
+
     // Wave Survival Mode state
     this.gameMode = 'ARENA';
     this.waveNumber = 0;
@@ -801,7 +804,7 @@ export class Room {
           });
           if (mob.health <= 0) {
             mob.alive = false;
-            this.onMobDeath(mob, player.id);
+            this.killMob(mob, player.id);
           }
         }
 
@@ -872,7 +875,7 @@ export class Room {
         });
         if (mob.health <= 0) {
           mob.alive = false;
-          this.onMobDeath(mob, player.id);
+          this.killMob(mob, player.id);
         }
       }
     }
