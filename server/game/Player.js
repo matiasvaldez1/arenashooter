@@ -270,8 +270,8 @@ export class Player {
 
     // Charge ultimate (passive + bonus from movement)
     const chargeRate = this.getEffectiveUltimateChargeRate();
-    const baseCharge = deltaTime * 3 * chargeRate;
-    const moveBonus = (dx !== 0 || dy !== 0) ? deltaTime * 3 * chargeRate : 0;
+    const baseCharge = deltaTime * 2 * chargeRate;
+    const moveBonus = (dx !== 0 || dy !== 0) ? deltaTime * 2 * chargeRate : 0;
     this.ultimateCharge = Math.min(100, this.ultimateCharge + baseCharge + moveBonus);
   }
 
@@ -323,7 +323,7 @@ export class Player {
     this.lastKillTime = Date.now();
 
     // Charge ultimate on kill
-    this.ultimateCharge = Math.min(100, this.ultimateCharge + 35);
+    this.ultimateCharge = Math.min(100, this.ultimateCharge + 25);
   }
 
   addUltimateCharge(amount) {
