@@ -1,6 +1,6 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG, GAME_MODES } from '../../../shared/constants.js';
+import { PLAYER_CLASSES, ULTIMATES, GAME_CONFIG, GAME_MODES, getCharacterList, getCharacter } from '../../../shared/constants.js';
 import { MAPS } from '../../../shared/maps.js';
 import { t, getLanguage } from '../utils/i18n.js';
 import { COLORS, fontStyle } from '../config/theme.js';
@@ -23,7 +23,8 @@ export class LobbyScene extends Phaser.Scene {
     this.roomCode = data.roomCode;
     this.isHost = data.isHost;
     this.currentStep = STEPS.GAME_MODE;
-    this.selectedClass = 'MESSI';
+    const defaultClass = getCharacterList()[0] || 'MESSI';
+    this.selectedClass = defaultClass;
     this.selectedMap = 'ARENA';
     this.selectedGameMode = 'ARENA';
     this.players = [];
@@ -62,7 +63,7 @@ export class LobbyScene extends Phaser.Scene {
     this.setupSocketEvents();
 
     // Select default class
-    SocketManager.selectClass('MESSI');
+    SocketManager.selectClass(this.selectedClass);
   }
 
   createBackground() {
@@ -512,8 +513,8 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
     container.add(title);
 
-    // Character cards
-    const classTypes = ['MESSI', 'MILEI', 'TRUMP', 'BIDEN', 'PUTIN'];
+    // Character cards - dynamically loaded from active theme
+    const classTypes = getCharacterList();
     this.classCards = {};
     const spacing = 210;
     const totalWidth = (classTypes.length - 1) * spacing;
@@ -529,7 +530,8 @@ export class LobbyScene extends Phaser.Scene {
     // Stats display at bottom
     this.statsContainer = this.add.container(this.centerX, 480);
     container.add(this.statsContainer);
-    this.updateStatsDisplay('MESSI');
+    const firstClass = classTypes[0] || 'MESSI';
+    this.updateStatsDisplay(firstClass);
 
     // Players list (small, right side)
     this.createMiniPlayersList(container);
@@ -1104,25 +1106,16 @@ export class LobbyScene extends Phaser.Scene {
 
   // ==================== HELPERS ====================
   getUltimateKey(ultimate) {
-    const keyMap = {
-      'GOLDEN_BALL': 'goldenBall',
-      'DOLLARIZATION': 'dollarization',
-      'MAGA_MECH': 'magaMech',
-      'EXECUTIVE_ORDER': 'executiveOrder',
-      'NUCLEAR_STRIKE': 'nuclearStrike',
-    };
-    return keyMap[ultimate] || ultimate.toLowerCase();
+    if (!ultimate) return 'unknown';
+    return ultimate.toLowerCase().replace(/_/g, '');
   }
 
   getUltKeyForClass(classType) {
-    const classToUlt = {
-      'MESSI': 'goldenBall',
-      'MILEI': 'dollarization',
-      'TRUMP': 'magaMech',
-      'BIDEN': 'executiveOrder',
-      'PUTIN': 'nuclearStrike',
-    };
-    return classToUlt[classType] || 'goldenBall';
+    const character = getCharacter(classType);
+    if (character?.ultimate?.id) {
+      return character.ultimate.id.toLowerCase().replace(/_/g, '');
+    }
+    return 'unknown';
   }
 
   shutdown() {

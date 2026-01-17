@@ -27,12 +27,15 @@ This starts both client and server:
    - Or enter a room code and click "Join Room"
 
 2. **Select Your Character**
-   - Choose from 5 famous personalities: Messi, Milei, Trump, Biden, Putin
+   - Choose from 5 characters based on active theme
+   - **Politics theme**: Messi, Milei, Trump, Biden, Putin
+   - **K-pop theme**: Jungkook, Momo, Haewon, Lisa, Winter
    - Each has unique abilities and stats
 
 3. **Select a Map** (Host only)
-   - Arena Clasica - Standard arena
-   - El Congreso - Argentine Congress with protester mobs
+   - Maps change based on active theme
+   - **Politics**: Arena, Congress, Kremlin, Mar-a-Lago, etc.
+   - **K-pop**: Seoul Dome, Music Bank, KCON Stage, etc.
 
 4. **Ready Up**
    - Click "READY" when all players have joined

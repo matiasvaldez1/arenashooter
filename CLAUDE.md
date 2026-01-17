@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Multiplayer 8-bit arena shooter featuring famous personalities (Messi, Milei, Trump, Biden, Putin) with real-time Socket.io networking and Phaser 3 rendering.
+Multiplayer 8-bit arena shooter with a modular theme system. Themes include Politics (Messi, Milei, Trump, Biden, Putin) and K-pop (Jungkook, Momo, Haewon, Lisa, Winter). Features real-time Socket.io networking and Phaser 3 rendering.
 
 ## Tech Stack
 
@@ -56,8 +56,11 @@ npm run build    # Production build
 - `client/src/utils/SpriteGenerator.js` - Programmatic sprite generation
 
 ### Shared
-- `shared/constants.js` - Game config, character stats, powerups
-- `shared/maps.js` - Map definitions, mob configs
+- `shared/constants.js` - Game config, powerups, theme API exports
+- `shared/maps.js` - Dynamic map/mob exports from active theme
+- `shared/themes/index.js` - Theme registry, getters, setters
+- `shared/themes/politics.js` - Politics theme (Messi, Trump, etc.)
+- `shared/themes/kpop.js` - K-pop theme (Jungkook, Lisa, etc.)
 
 ## Architecture Notes
 
@@ -65,6 +68,7 @@ npm run build    # Production build
 - **Client interpolation**: Smooth movement between state updates
 - **Tick rates**: Physics at 60Hz, state broadcast at 20Hz
 - **Procedural assets**: All sprites generated via Canvas API
+- **Modular themes**: Characters, maps, mobs defined in `shared/themes/`
 
 ## Deployment
 

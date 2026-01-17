@@ -1,5 +1,8 @@
 // Shared constants between client and server
-// FAMOUS PERSONALITIES EDITION!
+// Modular Theme System
+
+export * from './themes/index.js';
+import { getActiveCharacters, getCharacter, getActiveTheme } from './themes/index.js';
 
 export const GAME_CONFIG = {
   WIDTH: 1280,
@@ -8,90 +11,64 @@ export const GAME_CONFIG = {
   PHYSICS_RATE: 60,
 };
 
-export const PLAYER_CLASSES = {
-  MESSI: {
-    name: 'Messi',
-    health: 70,
-    speed: 300,
-    fireRate: 5,
-    damage: 18,
-    projectileSpeed: 700,
-    color: '#75aaff', // Argentina blue
-    ultimate: 'GOLDEN_BALL',
-    ultimateCharge: 80,
-    dashCooldown: 2000,
-    dashDistance: 400,
-    projectileType: 'soccer_ball',
-    description: 'The GOAT - Fast dribbles, deadly shots!',
+// Dynamic PLAYER_CLASSES getter for backward compatibility
+export function getPlayerClasses() {
+  return getActiveCharacters();
+}
+
+// Backward compatible PLAYER_CLASSES export (computed from active theme)
+export const PLAYER_CLASSES = new Proxy({}, {
+  get(target, prop) {
+    const chars = getActiveCharacters();
+    return chars[prop];
   },
-  MILEI: {
-    name: 'Milei',
-    health: 100,
-    speed: 210,
-    fireRate: 3.5,
-    damage: 28,
-    projectileSpeed: 600,
-    color: '#ffcc00', // Libertarian yellow
-    ultimate: 'DOLLARIZATION',
-    ultimateCharge: 100,
-    chainsawDamage: 40,
-    chainsawCooldown: 4000,
-    projectileType: 'peso',
-    description: 'VIVA LA LIBERTAD! Chainsaw economist!',
+  ownKeys() {
+    return Object.keys(getActiveCharacters());
   },
-  TRUMP: {
-    name: 'Trump',
-    health: 110,
-    speed: 170,
-    fireRate: 2,
-    damage: 22,
-    projectileSpeed: 500,
-    color: '#ff6b35', // Orange
-    ultimate: 'MAGA_MECH',
-    ultimateCharge: 120,
-    wallDuration: 12000,
-    wallHealth: 150,
-    turretDuration: 8000,
-    turretDamage: 12,
-    turretFireRate: 2,
-    projectileType: 'tweet',
-    description: 'Build walls, deploy turrets, Make Arena Great Again!',
+  getOwnPropertyDescriptor(target, prop) {
+    const chars = getActiveCharacters();
+    if (prop in chars) {
+      return { enumerable: true, configurable: true, value: chars[prop] };
+    }
+    return undefined;
   },
-  BIDEN: {
-    name: 'Biden',
-    health: 90,
-    speed: 180,
-    fireRate: 3,
-    damage: 16,
-    lifeSteal: 0.25,
-    projectileSpeed: 450,
-    color: '#3d5a99', // Democrat blue
-    ultimate: 'EXECUTIVE_ORDER',
-    ultimateCharge: 100,
-    healZoneDuration: 6000,
-    healZoneRate: 15,
-    projectileType: 'ice_cream',
-    description: 'Heals allies with ice cream, steals life!',
+  has(target, prop) {
+    return prop in getActiveCharacters();
   },
-  PUTIN: {
-    name: 'Putin',
-    health: 130,
-    speed: 160,
-    fireRate: 0.8,
-    damage: 55,
-    splashDamage: 35,
-    explosionRadius: 90,
-    fuseTime: 1800,
-    color: '#cc0000', // Soviet red
-    ultimate: 'NUCLEAR_STRIKE',
-    ultimateCharge: 100,
-    bearDuration: 12000,
-    bearDamage: 15,
-    bearFireRate: 2,
-    projectileType: 'missile',
-    description: 'Launches missiles, deploys bears!',
+});
+
+// Dynamic ULTIMATES getter
+export function getUltimates() {
+  const chars = getActiveCharacters();
+  const ultimates = {};
+  for (const [key, char] of Object.entries(chars)) {
+    if (char.ultimate) {
+      ultimates[char.ultimate.id] = {
+        name: char.ultimate.name,
+        duration: char.ultimate.duration,
+        description: char.ultimate.description,
+      };
+    }
+  }
+  return ultimates;
+}
+
+// Backward compatible ULTIMATES export
+export const ULTIMATES = new Proxy({}, {
+  get(target, prop) {
+    return getUltimates()[prop];
   },
-};
+  ownKeys() {
+    return Object.keys(getUltimates());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    const ults = getUltimates();
+    if (prop in ults) {
+      return { enumerable: true, configurable: true, value: ults[prop] };
+    }
+    return undefined;
+  },
+});
 
 export const POWERUPS = {
   SPEED: {
@@ -129,34 +106,6 @@ export const POWERUPS = {
     duration: 8000,
     color: '#ff8800',
     effect: { ricochetCount: 3 },
-  },
-};
-
-export const ULTIMATES = {
-  GOLDEN_BALL: {
-    name: 'Golden Ball',
-    duration: 4000,
-    description: 'Become unstoppable, rapid fire soccer balls everywhere!',
-  },
-  DOLLARIZATION: {
-    name: 'Dollarization',
-    duration: 8000,
-    description: 'AFUERA! Double damage, money explosion aura!',
-  },
-  MAGA_MECH: {
-    name: 'MAGA Mech',
-    duration: 10000,
-    description: 'Transform into a giant mech suit!',
-  },
-  EXECUTIVE_ORDER: {
-    name: 'Executive Order',
-    duration: 0,
-    description: 'Swap health with the lowest enemy!',
-  },
-  NUCLEAR_STRIKE: {
-    name: 'Nuclear Strike',
-    duration: 3000,
-    description: 'Rain missiles across the entire arena!',
   },
 };
 
@@ -201,11 +150,11 @@ export const POWERUP_SPAWN_INTERVAL = 15000;
 export const DODGE_CONFIG = {
   distance: 80,
   cooldown: 1500,
-  iframeDuration: 200, // invincibility frames during dodge
+  iframeDuration: 200,
 };
 
 // ==========================================
-// ROGUELIKE MODE CONSTANTS
+// GAME MODES
 // ==========================================
 
 export const GAME_MODES = {
@@ -248,51 +197,50 @@ export const INFINITE_HORDE_CONFIG = {
 };
 
 export const ARENA_CONFIG = {
-  GAME_DURATION_MS: 90 * 1000, // 90 seconds
-  WIN_SCORE: null, // null = time-based, or set a score to win
+  GAME_DURATION_MS: 90 * 1000,
+  WIN_SCORE: null,
 };
 
-export const TEAM_ABILITIES = {
-  COMBO_DAMAGE: {
-    enabled: true,
-    windowMs: 1000,
-    bonuses: {
-      2: 0.10,
-      3: 0.25,
-      4: 0.50,
+// Dynamic TEAM_ABILITIES based on active theme
+export function getTeamAbilities() {
+  const chars = getActiveCharacters();
+  const auras = {};
+  for (const [key, char] of Object.entries(chars)) {
+    if (char.aura) {
+      auras[key] = char.aura;
+    }
+  }
+  return {
+    COMBO_DAMAGE: {
+      enabled: true,
+      windowMs: 1000,
+      bonuses: {
+        2: 0.10,
+        3: 0.25,
+        4: 0.50,
+      },
+      stunAt4: true,
+      stunDuration: 500,
     },
-    stunAt4: true,
-    stunDuration: 500,
+    AURAS: auras,
+  };
+}
+
+export const TEAM_ABILITIES = new Proxy({}, {
+  get(target, prop) {
+    return getTeamAbilities()[prop];
   },
-  AURAS: {
-    MESSI: {
-      type: 'SPEED_AURA',
-      radius: 150,
-      speedBonus: 0.10,
-    },
-    MILEI: {
-      type: 'ECONOMIC_BOOST',
-      cooldown: 30000,
-      duration: 5000,
-      powerupMultiplier: 2.0,
-    },
-    TRUMP: {
-      type: 'WALL_RALLY',
-      radius: 120,
-      damageBonus: 0.15,
-      duration: 8000,
-    },
-    BIDEN: {
-      type: 'HEAL_ZONE',
-      slowEnemies: 0.20,
-    },
-    PUTIN: {
-      type: 'FEAR_AURA',
-      radius: 100,
-      mobDamageReduction: 0.20,
-    },
+  ownKeys() {
+    return Object.keys(getTeamAbilities());
   },
-};
+  getOwnPropertyDescriptor(target, prop) {
+    const abilities = getTeamAbilities();
+    if (prop in abilities) {
+      return { enumerable: true, configurable: true, value: abilities[prop] };
+    }
+    return undefined;
+  },
+});
 
 export const WAVE_CONFIG = {
   BASE_MOB_COUNT: 5,

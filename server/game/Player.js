@@ -1,4 +1,4 @@
-import { PLAYER_CLASSES, GAME_CONFIG, SPAWN_INVINCIBILITY, POWERUPS, DODGE_CONFIG, PERKS } from '../../shared/constants.js';
+import { PLAYER_CLASSES, GAME_CONFIG, SPAWN_INVINCIBILITY, POWERUPS, DODGE_CONFIG, PERKS, getCharacter } from '../../shared/constants.js';
 
 export class Player {
   constructor(id, name) {
@@ -62,11 +62,11 @@ export class Player {
   }
 
   setClass(classType) {
-    if (PLAYER_CLASSES[classType]) {
+    const character = getCharacter(classType);
+    if (character) {
       this.classType = classType;
-      const stats = PLAYER_CLASSES[classType];
-      this.maxHealth = stats.health;
-      this.speed = stats.speed;
+      this.maxHealth = character.health;
+      this.speed = character.speed;
     }
   }
 
@@ -142,8 +142,8 @@ export class Player {
   }
 
   getEffectiveFireRate() {
-    const stats = PLAYER_CLASSES[this.classType];
-    let fireRate = stats.fireRate;
+    const character = getCharacter(this.classType);
+    let fireRate = character?.fireRate || 3;
 
     // Perk bonus (permanent)
     if (this.perks.FIRE_RATE_BOOST) {
@@ -155,14 +155,22 @@ export class Player {
       fireRate *= POWERUPS.RAPID_FIRE.effect.fireRateMultiplier;
     }
 
-    // Ultimate: Golden Ball (Messi rapid fire)
-    if (this.ultimateActive && this.classType === 'MESSI') {
-      fireRate *= 5;
+    // Ultimate effects on fire rate
+    if (this.ultimateActive) {
+      const character = getCharacter(this.classType);
+      const ultimateEffect = character?.ultimate?.effect;
+      if (ultimateEffect === 'GOLDEN_BALL') {
+        fireRate *= 5;
+      } else if (ultimateEffect === 'DOLLARIZATION') {
+        fireRate *= 2;
+      } else if (ultimateEffect === 'MONEY') {
+        fireRate *= 2;
+      }
     }
 
-    // Ultimate: Dollarization (Milei damage aura)
-    if (this.ultimateActive && this.classType === 'MILEI') {
-      fireRate *= 2;
+    // Rapid fire ability active
+    if (this.rapidFireActive && Date.now() < this.rapidFireEndTime) {
+      fireRate *= this.rapidFireMultiplier || 3;
     }
 
     return fireRate;
@@ -182,9 +190,10 @@ export class Player {
   getEffectiveLifeSteal() {
     let lifeSteal = 0;
 
-    // Base life steal for Biden
-    if (this.classType === 'BIDEN') {
-      lifeSteal = PLAYER_CLASSES.BIDEN.lifeSteal;
+    // Base life steal from character stats
+    const character = getCharacter(this.classType);
+    if (character?.lifeSteal) {
+      lifeSteal = character.lifeSteal;
     }
 
     // Perk bonus (permanent)
@@ -337,32 +346,15 @@ export class Player {
   activateUltimate() {
     if (!this.canUseUltimate()) return false;
 
-    const stats = PLAYER_CLASSES[this.classType];
+    const character = getCharacter(this.classType);
+    if (!character?.ultimate) return false;
+
     this.ultimateActive = true;
     this.ultimateCharge = 0;
 
-    // Set duration based on ultimate type
-    const ultimateDurations = {
-      GOLDEN_BALL: 4000,      // Messi - rapid fire soccer balls
-      DOLLARIZATION: 8000,    // Milei - double damage money aura
-      MAGA_MECH: 10000,       // Trump - giant mech suit
-      EXECUTIVE_ORDER: 0,     // Biden - instant life swap
-      NUCLEAR_STRIKE: 3000,   // Putin - carpet missile barrage
-    };
-
-    const duration = ultimateDurations[stats.ultimate] || 5000;
+    // Get duration from character ultimate config
+    const duration = character.ultimate.duration || 5000;
     this.ultimateEndTime = Date.now() + duration;
-
-    // Apply immediate effects
-    if (stats.ultimate === 'MAGA_MECH') {
-      this.mechMode = true;
-      this.maxHealth = stats.health * 2;
-      this.health = Math.min(this.health + 100, this.maxHealth);
-    } else if (stats.ultimate === 'GOLDEN_BALL') {
-      // Messi becomes invincible during Golden Ball
-      this.spawnProtection = true;
-      this.spawnProtectionEnd = this.ultimateEndTime;
-    }
 
     return true;
   }
@@ -370,31 +362,34 @@ export class Player {
   deactivateUltimate() {
     this.ultimateActive = false;
     this.invisible = false;
+    this.rapidFireActive = false;
+    this.damageAuraActive = false;
 
     if (this.mechMode) {
       this.mechMode = false;
-      const stats = PLAYER_CLASSES[this.classType];
-      this.maxHealth = stats.health;
+      const character = getCharacter(this.classType);
+      this.maxHealth = character?.health || 100;
       this.health = Math.min(this.health, this.maxHealth);
     }
   }
 
   canDash() {
-    // Messi has dash ability (like a soccer dribble)
-    if (this.classType !== 'MESSI') return false;
-    const stats = PLAYER_CLASSES.MESSI;
-    return Date.now() - this.lastDashTime >= stats.dashCooldown;
+    const character = getCharacter(this.classType);
+    if (character?.ability?.type !== 'DASH') return false;
+    const cooldown = character.ability.cooldown || 2000;
+    return Date.now() - this.lastDashTime >= cooldown;
   }
 
   performDash() {
     if (!this.canDash()) return null;
 
-    const stats = PLAYER_CLASSES.MESSI;
+    const character = getCharacter(this.classType);
+    const distance = character?.ability?.distance || 300;
     this.lastDashTime = Date.now();
 
     // Calculate dash end position
-    const dashX = this.x + Math.cos(this.angle) * stats.dashDistance;
-    const dashY = this.y + Math.sin(this.angle) * stats.dashDistance;
+    const dashX = this.x + Math.cos(this.angle) * distance;
+    const dashY = this.y + Math.sin(this.angle) * distance;
 
     // Clamp to bounds
     const oldX = this.x;
@@ -406,21 +401,22 @@ export class Player {
   }
 
   canChainsaw() {
-    // Milei has chainsaw ability
-    if (this.classType !== 'MILEI') return false;
-    const stats = PLAYER_CLASSES.MILEI;
-    return Date.now() - this.lastChainsawTime >= stats.chainsawCooldown;
+    const character = getCharacter(this.classType);
+    if (character?.ability?.type !== 'CHAINSAW') return false;
+    const cooldown = character.ability.cooldown || 3000;
+    return Date.now() - this.lastChainsawTime >= cooldown;
   }
 
   performChainsaw() {
     if (!this.canChainsaw()) return null;
 
+    const character = getCharacter(this.classType);
     this.lastChainsawTime = Date.now();
     return {
       x: this.x,
       y: this.y,
       angle: this.angle,
-      damage: PLAYER_CLASSES.MILEI.chainsawDamage
+      damage: character?.ability?.damage || 50
     };
   }
 

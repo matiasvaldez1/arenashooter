@@ -33,12 +33,16 @@ multiplayer8bitgame/
 ├── server/                     # Node.js + Socket.io server
 │   ├── index.js               # Entry point, socket handlers
 │   └── game/
-│       ├── Room.js            # Room state management
+│       ├── Room.js            # Room state, ability handlers
 │       ├── Player.js          # Server-side player entity
 │       └── GameLoop.js        # Physics tick loop (60Hz)
 ├── shared/                     # Shared between client/server
-│   ├── constants.js           # Game config, classes, powerups
-│   └── maps.js                # Map definitions, mobs
+│   ├── constants.js           # Game config, powerups, theme exports
+│   ├── maps.js                # Dynamic map exports from themes
+│   └── themes/                # Modular theme system
+│       ├── index.js           # Theme registry & API
+│       ├── politics.js        # Politics theme (Messi, Trump, etc.)
+│       └── kpop.js            # K-pop theme (Jungkook, Lisa, etc.)
 ├── docs/                       # Documentation
 └── package.json
 ```
@@ -102,15 +106,68 @@ multiplayer8bitgame/
   - Entity interpolation for smooth movement
   - UI (health, score, ultimate bar)
 
-## Character Classes
+## Theme System
 
+The game uses a modular theme system allowing complete character/map swaps:
+
+```javascript
+import { setActiveTheme, getCharacterList } from './shared/constants.js';
+
+setActiveTheme('KPOP');  // Switch to K-pop theme
+console.log(getCharacterList()); // ['JUNGKOOK', 'MOMO', 'HAEWON', 'LISA', 'WINTER']
+```
+
+### Theme API
+
+| Function | Description |
+|----------|-------------|
+| `getActiveTheme()` | Returns current theme object |
+| `setActiveTheme(id)` | Switch theme ('POLITICS', 'KPOP') |
+| `getCharacterList()` | Array of enabled character IDs |
+| `getCharacter(id)` | Get character stats/abilities |
+| `getActiveMaps()` | Object of maps for current theme |
+| `getActiveMobs()` | Object of mobs for current theme |
+
+### Adding a New Theme
+
+1. Create `shared/themes/yourtheme.js`:
+```javascript
+export const YOUR_THEME = {
+  id: 'YOUR_THEME',
+  name: 'Theme Name',
+  characters: { /* character definitions */ },
+  maps: { /* map definitions */ },
+  mobs: { /* mob definitions */ },
+};
+```
+
+2. Register in `shared/themes/index.js`:
+```javascript
+import { YOUR_THEME } from './yourtheme.js';
+export const THEMES = { ..., YOUR_THEME };
+```
+
+3. Add sprites in `SpriteGenerator.js`
+
+### Available Themes
+
+**Politics** (default):
 | Character | Health | Speed | Ability | Ultimate |
 |-----------|--------|-------|---------|----------|
-| Messi | 100 | 220 | Dribble (dash) | Golden Ball (invincibility) |
-| Milei | 110 | 200 | Chainsaw (melee) | Dollarization (damage aura) |
-| Trump | 120 | 180 | Deploy Turret | Build Wall |
-| Biden | 100 | 170 | Heal Zone | Carpet Bomb |
-| Putin | 130 | 190 | Bear Turret | Nuclear Strike |
+| Messi | 70 | 300 | Dash | Golden Ball |
+| Milei | 100 | 220 | Chainsaw | Dollarization |
+| Trump | 110 | 170 | Turret/Wall | MAGA Mech |
+| Biden | 90 | 160 | Heal Zone | Executive Order |
+| Putin | 120 | 150 | Missile Barrage | Nuclear Strike |
+
+**K-pop**:
+| Character | Health | Speed | Ability | Ultimate |
+|-----------|--------|-------|---------|----------|
+| Jungkook | 90 | 260 | Dash | Dynamite |
+| Momo | 75 | 320 | Dance Zone | Fancy |
+| Haewon | 85 | 240 | Scream | O.O |
+| Lisa | 80 | 280 | Rapid Fire | Money |
+| Winter | 95 | 220 | Freeze Zone | Black Mamba |
 
 ## Server Authority
 

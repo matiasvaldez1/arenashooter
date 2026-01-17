@@ -1,7 +1,194 @@
 import { Player } from './Player.js';
 import { GameLoop } from './GameLoop.js';
-import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL, GAME_MODES, WAVE_CONFIG, PERKS, MAP_MODIFIERS, ARENA_CONFIG, INFINITE_HORDE_CONFIG, TEAM_ABILITIES } from '../../shared/constants.js';
+import { GAME_CONFIG, PLAYER_CLASSES, POWERUPS, HAZARDS, KILL_STREAKS, POWERUP_SPAWN_INTERVAL, GAME_MODES, WAVE_CONFIG, PERKS, MAP_MODIFIERS, ARENA_CONFIG, INFINITE_HORDE_CONFIG, TEAM_ABILITIES, getCharacter, getActiveCharacters, ABILITY_TYPES } from '../../shared/constants.js';
 import { MAPS, MOBS, BOSS_MOBS, MAP_HAZARDS } from '../../shared/maps.js';
+
+const ABILITY_HANDLERS = {
+  DASH: (room, player) => {
+    const character = getCharacter(player.classType);
+    if (!character?.ability) return false;
+    if (!player.canDash()) return false;
+
+    const dashResult = player.performDash();
+    if (!dashResult) return false;
+
+    room.io.to(room.code).emit('player:dash', {
+      playerId: player.id,
+      ...dashResult,
+    });
+
+    // Deal damage if ability has damage
+    if (character.ability.damage > 0) {
+      for (const other of room.players.values()) {
+        if (other.id === player.id || !other.alive) continue;
+        const dist = room.pointToLineDistance(
+          other.x, other.y,
+          dashResult.fromX, dashResult.fromY,
+          dashResult.toX, dashResult.toY
+        );
+        if (dist < 30) {
+          const result = other.takeDamage(character.ability.damage, player.id);
+          room.io.to(room.code).emit('player:hit', {
+            playerId: other.id,
+            damage: character.ability.damage,
+            health: other.health,
+          });
+          if (result.died) {
+            room.handlePlayerDeath(other, player.id);
+          }
+        }
+      }
+    }
+    return true;
+  },
+
+  CHAINSAW: (room, player) => {
+    const character = getCharacter(player.classType);
+    if (!character?.ability) return false;
+    if (!player.canChainsaw()) return false;
+
+    const chainsawResult = player.performChainsaw();
+    if (!chainsawResult) return false;
+
+    room.io.to(room.code).emit('player:chainsaw', {
+      playerId: player.id,
+      ...chainsawResult,
+    });
+
+    // Deal damage in range
+    const range = character.ability.range || 80;
+    for (const other of room.players.values()) {
+      if (other.id === player.id || !other.alive) continue;
+      const dx = other.x - player.x;
+      const dy = other.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < range) {
+        const result = other.takeDamage(character.ability.damage, player.id);
+        room.io.to(room.code).emit('player:hit', {
+          playerId: other.id,
+          damage: character.ability.damage,
+          health: other.health,
+        });
+        if (result.died) {
+          room.handlePlayerDeath(other, player.id);
+        }
+      }
+    }
+    return true;
+  },
+
+  TURRET: (room, player) => {
+    const character = getCharacter(player.classType);
+    if (!character?.ability) return false;
+
+    const maxTurrets = character.ability.maxTurrets || 2;
+    if (room.turrets.filter(t => t.ownerId === player.id).length < maxTurrets) {
+      room.placeTurret(player);
+    } else {
+      room.placeBarrier(player);
+    }
+    return true;
+  },
+
+  DANCE_ZONE: (room, player) => {
+    room.createDanceZone(player);
+    return true;
+  },
+
+  SCREAM: (room, player) => {
+    room.sonicScream(player);
+    return true;
+  },
+
+  HEAL_ZONE: (room, player) => {
+    room.createHealZone(player);
+    return true;
+  },
+
+  MISSILE_BARRAGE: (room, player) => {
+    room.missileBarrage(player);
+    return true;
+  },
+
+  FREEZE_ZONE: (room, player) => {
+    room.createFreezeZone(player);
+    return true;
+  },
+
+  RAPID_FIRE: (room, player) => {
+    room.activateRapidFire(player);
+    return true;
+  },
+};
+
+const ULTIMATE_HANDLERS = {
+  GOLDEN_BALL: (room, player) => {
+    player.spawnProtection = true;
+    player.spawnProtectionEnd = player.ultimateEndTime;
+  },
+
+  DOLLARIZATION: (room, player) => {
+    room.io.to(room.code).emit('ultimate:dollarization', {
+      playerId: player.id,
+      duration: player.ultimateEndTime - Date.now(),
+    });
+  },
+
+  MAGA_MECH: (room, player) => {
+    player.mechMode = true;
+    const character = getCharacter(player.classType);
+    player.maxHealth = character.health * 2;
+    player.health = Math.min(player.health + 100, player.maxHealth);
+  },
+
+  EXECUTIVE_ORDER: (room, player) => {
+    // Find lowest health enemy
+    let lowestEnemy = null;
+    let lowestHealth = Infinity;
+    for (const other of room.players.values()) {
+      if (other.id === player.id || !other.alive) continue;
+      if (other.health < lowestHealth) {
+        lowestHealth = other.health;
+        lowestEnemy = other;
+      }
+    }
+    if (lowestEnemy) {
+      const tempHealth = player.health;
+      player.health = lowestEnemy.health;
+      lowestEnemy.health = tempHealth;
+      room.io.to(room.code).emit('ultimate:healthSwap', {
+        playerId: player.id,
+        targetId: lowestEnemy.id,
+        playerHealth: player.health,
+        targetHealth: lowestEnemy.health,
+      });
+    }
+  },
+
+  NUCLEAR_STRIKE: (room, player) => {
+    room.nuclearStrike(player);
+  },
+
+  DYNAMITE: (room, player) => {
+    room.dynamiteExplosion(player);
+  },
+
+  FANCY: (room, player) => {
+    room.fancyHypnotize(player);
+  },
+
+  OO_EFFECT: (room, player) => {
+    room.ooSonicWave(player);
+  },
+
+  MONEY: (room, player) => {
+    room.moneyUltimate(player);
+  },
+
+  BLACK_MAMBA: (room, player) => {
+    room.blackMambaUltimate(player);
+  },
+};
 
 export class Room {
   constructor(code, io) {
@@ -510,146 +697,153 @@ export class Room {
   }
 
   handleAbility(player) {
-    // Messi: Dash/Dribble - fast dash through enemies
-    if (player.classType === 'MESSI' && player.canDash()) {
-      const dashResult = player.performDash();
-      if (dashResult) {
-        this.io.to(this.code).emit('player:dash', {
-          playerId: player.id,
-          ...dashResult,
-        });
+    const character = getCharacter(player.classType);
+    if (!character?.ability) return;
 
-        // Deal damage to players in dash path
-        for (const other of this.players.values()) {
-          if (other.id === player.id || !other.alive) continue;
-
-          // Simple line collision
-          const dist = this.pointToLineDistance(
-            other.x, other.y,
-            dashResult.fromX, dashResult.fromY,
-            dashResult.toX, dashResult.toY
-          );
-
-          if (dist < 30) {
-            const result = other.takeDamage(20, player.id);
-            this.io.to(this.code).emit('player:hit', {
-              playerId: other.id,
-              damage: 20,
-              health: other.health,
-            });
-            if (result.died) {
-              this.handlePlayerDeath(other, player.id);
-            }
-          }
-        }
-      }
-    }
-    // Milei: Chainsaw attack - high damage melee
-    else if (player.classType === 'MILEI' && player.canChainsaw()) {
-      const chainsawResult = player.performChainsaw();
-      if (chainsawResult) {
-        this.io.to(this.code).emit('player:chainsaw', {
-          playerId: player.id,
-          ...chainsawResult,
-        });
-
-        // Deal damage in cone area in front
-        for (const other of this.players.values()) {
-          if (other.id === player.id || !other.alive) continue;
-
-          const dx = other.x - player.x;
-          const dy = other.y - player.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const angleToOther = Math.atan2(dy, dx);
-          const angleDiff = Math.abs(angleToOther - player.angle);
-
-          // Within 70 pixels and 45 degree cone
-          if (dist < 70 && angleDiff < Math.PI / 4) {
-            const result = other.takeDamage(chainsawResult.damage, player.id);
-            this.io.to(this.code).emit('player:hit', {
-              playerId: other.id,
-              damage: chainsawResult.damage,
-              health: other.health,
-            });
-            if (result.died) {
-              this.handlePlayerDeath(other, player.id);
-            }
-          }
-        }
-      }
-    }
-    // Trump: Build wall or turret
-    else if (player.classType === 'TRUMP') {
-      // Place turret or barrier (alternate)
-      if (this.turrets.filter(t => t.ownerId === player.id).length < 2) {
-        this.placeTurret(player);
-      } else {
-        this.placeBarrier(player);
-      }
-    }
-    // Biden: Create ice cream heal zone
-    else if (player.classType === 'BIDEN') {
-      this.createHealZone(player);
-    }
-    // Putin: Deploy bear turret
-    else if (player.classType === 'PUTIN') {
-      this.placeBear(player);
+    const handler = ABILITY_HANDLERS[character.ability.type];
+    if (handler) {
+      handler(this, player);
     }
   }
 
   handleUltimate(player) {
     if (!player.canUseUltimate()) return;
 
-    const stats = PLAYER_CLASSES[player.classType];
+    const character = getCharacter(player.classType);
+    if (!character?.ultimate) return;
 
     if (player.activateUltimate()) {
       this.io.to(this.code).emit('player:ultimate', {
         playerId: player.id,
-        type: stats.ultimate,
+        type: character.ultimate.id,
       });
 
-      // Handle specific ultimates
-      if (stats.ultimate === 'NUCLEAR_STRIKE') {
-        this.nuclearStrike(player);
-      } else if (stats.ultimate === 'EXECUTIVE_ORDER') {
-        this.lifeSwap(player);
-      } else if (stats.ultimate === 'DOLLARIZATION') {
-        this.dollarization(player);
+      // Handle ultimate effects using registry
+      const handler = ULTIMATE_HANDLERS[character.ultimate.effect];
+      if (handler) {
+        handler(this, player);
       }
     }
   }
 
-  nuclearStrike(player) {
-    // Putin's ultimate - rain missiles across the entire arena
-    const startX = 50;
-    const endX = GAME_CONFIG.WIDTH - 50;
-    const y = player.y;
-
-    for (let i = 0; i < 10; i++) {
+  dynamiteExplosion(player) {
+    // Jungkook's ultimate - explosive fireworks across arena
+    for (let i = 0; i < 12; i++) {
       const timeoutId = setTimeout(() => {
         this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
         if (this.gameStarted) {
-          const x = startX + (endX - startX) * (i / 9);
-          this.createExplosion(x, y, 80, player.id, 50);
+          const x = 100 + Math.random() * (GAME_CONFIG.WIDTH - 200);
+          const y = 100 + Math.random() * (GAME_CONFIG.HEIGHT - 200);
+          this.createExplosion(x, y, 70, player.id, 35);
         }
-      }, i * 200);
+      }, i * 150);
       this.pendingTimeouts.push(timeoutId);
     }
   }
 
-  dollarization(player) {
-    // Milei's ultimate - damage aura explosion
-    const damage = 40;
-    const radius = 200;
+  fancyHypnotize(player) {
+    // Momo's ultimate - slow all enemies on screen
+    const slowDuration = 4000;
+    const slowAmount = 0.5;
 
-    // Damage nearby players (PvP)
+    // Slow enemy players (PvP)
     for (const other of this.players.values()) {
       if (other.id === player.id || !other.alive) continue;
+      other.applySlowEffect(slowAmount, slowDuration);
+    }
 
+    // Slow mobs (Wave Survival)
+    for (const mob of this.mobs) {
+      if (!mob.alive) continue;
+      mob.slowed = true;
+      mob.slowEndTime = Date.now() + slowDuration;
+      mob.slowAmount = slowAmount;
+    }
+
+    this.io.to(this.code).emit('ultimate:fancy', {
+      playerId: player.id,
+      duration: slowDuration,
+    });
+  }
+
+  ooSonicWave(player) {
+    // Haewon's ultimate - sonic shockwaves damage all enemies
+    const damage = 30;
+    const waves = 3;
+
+    for (let i = 0; i < waves; i++) {
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+        if (!this.gameStarted) return;
+
+        // Damage all enemy players
+        for (const other of this.players.values()) {
+          if (other.id === player.id || !other.alive) continue;
+          const result = other.takeDamage(damage, player.id);
+          this.io.to(this.code).emit('player:hit', {
+            playerId: other.id,
+            damage,
+            health: other.health,
+          });
+          if (result.died) {
+            this.handlePlayerDeath(other, player.id);
+          }
+        }
+
+        // Damage all mobs
+        for (const mob of this.mobs) {
+          if (!mob.alive) continue;
+          mob.health -= damage;
+          this.io.to(this.code).emit('mob:hit', {
+            mobId: mob.id,
+            damage,
+            health: mob.health,
+          });
+          if (mob.health <= 0) {
+            mob.alive = false;
+            this.onMobDeath(mob, player.id);
+          }
+        }
+
+        this.io.to(this.code).emit('ultimate:sonicWave', {
+          playerId: player.id,
+          wave: i + 1,
+        });
+      }, i * 800);
+      this.pendingTimeouts.push(timeoutId);
+    }
+  }
+
+  createDanceZone(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const danceZone = {
+      id: `dancezone_${Date.now()}`,
+      ownerId: player.id,
+      x: player.x,
+      y: player.y,
+      radius: ability?.radius || 120,
+      endTime: Date.now() + (ability?.duration || 4000),
+      allySpeedBonus: ability?.allySpeedBonus || 0.20,
+      enemySlowAmount: ability?.enemySlowAmount || 0.30,
+    };
+
+    this.healZones.push(danceZone);
+    this.io.to(this.code).emit('danceZone:spawn', danceZone);
+  }
+
+  sonicScream(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const damage = ability?.damage || 30;
+    const radius = ability?.radius || 150;
+
+    // Damage nearby players
+    for (const other of this.players.values()) {
+      if (other.id === player.id || !other.alive) continue;
       const dx = other.x - player.x;
       const dy = other.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-
       if (dist < radius) {
         const result = other.takeDamage(damage, player.id);
         this.io.to(this.code).emit('player:hit', {
@@ -663,14 +857,12 @@ export class Room {
       }
     }
 
-    // Damage nearby mobs (Wave Survival)
+    // Damage nearby mobs
     for (const mob of this.mobs) {
       if (!mob.alive) continue;
-
       const dx = mob.x - player.x;
       const dy = mob.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-
       if (dist < radius) {
         mob.health -= damage;
         this.io.to(this.code).emit('mob:hit', {
@@ -684,78 +876,28 @@ export class Room {
         }
       }
     }
-  }
 
-  lifeSwap(player) {
-    // Find player with lowest health (PvP mode)
-    let lowestPlayer = null;
-    let lowestHealth = Infinity;
-
-    for (const other of this.players.values()) {
-      if (other.id === player.id || !other.alive) continue;
-      if (other.health < lowestHealth) {
-        lowestHealth = other.health;
-        lowestPlayer = other;
-      }
-    }
-
-    if (lowestPlayer) {
-      // Swap health with lowest enemy player
-      const tempHealth = player.health;
-      player.health = lowestPlayer.health;
-      lowestPlayer.health = tempHealth;
-
-      this.io.to(this.code).emit('player:lifeSwap', {
-        playerId: player.id,
-        targetId: lowestPlayer.id,
-        playerHealth: player.health,
-        targetHealth: lowestPlayer.health,
-      });
-    } else {
-      // Wave Survival mode - heal to full and gain temporary invincibility
-      const stats = PLAYER_CLASSES[player.classType];
-      player.health = stats.health;
-      player.spawnProtection = true;
-      player.spawnProtectionEnd = Date.now() + 3000;
-
-      this.io.to(this.code).emit('player:heal', {
-        playerId: player.id,
-        health: player.health,
-        maxHealth: stats.health,
-      });
-    }
-  }
-
-  createHealZone(player) {
-    // Biden's ice cream heal zone
-    const stats = PLAYER_CLASSES.BIDEN;
-    const healZone = {
-      id: `healzone_${Date.now()}`,
-      ownerId: player.id,
+    this.io.to(this.code).emit('player:scream', {
+      playerId: player.id,
       x: player.x,
       y: player.y,
-      radius: 60,
-      healRate: stats.healZoneRate,
-      endTime: Date.now() + stats.healZoneDuration,
-    };
-
-    this.healZones.push(healZone);
-    this.io.to(this.code).emit('healZone:spawn', healZone);
+      radius,
+    });
   }
 
   placeTurret(player) {
-    // Trump's turret
-    const stats = PLAYER_CLASSES.TRUMP;
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
     const turret = {
       id: `turret_${Date.now()}`,
       ownerId: player.id,
       x: player.x + Math.cos(player.angle) * 50,
       y: player.y + Math.sin(player.angle) * 50,
       health: 50,
-      damage: stats.turretDamage,
-      fireRate: stats.turretFireRate,
+      damage: ability?.turretDamage || 12,
+      fireRate: ability?.turretFireRate || 2,
       lastFireTime: 0,
-      endTime: Date.now() + stats.turretDuration,
+      endTime: Date.now() + (ability?.turretDuration || 8000),
     };
 
     this.turrets.push(turret);
@@ -763,8 +905,8 @@ export class Room {
   }
 
   placeBarrier(player) {
-    // Trump's wall
-    const stats = PLAYER_CLASSES.TRUMP;
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
     const barrier = {
       id: `barrier_${Date.now()}`,
       ownerId: player.id,
@@ -773,32 +915,167 @@ export class Room {
       width: 80,
       height: 24,
       angle: player.angle,
-      health: stats.wallHealth,
+      health: ability?.wallHealth || 150,
     };
 
     this.barriers.push(barrier);
     this.io.to(this.code).emit('barrier:spawn', barrier);
   }
 
-  placeBear(player) {
-    // Putin's bear turret
-    const stats = PLAYER_CLASSES.PUTIN;
-    const bear = {
-      id: `bear_${Date.now()}`,
+  createFreezeZone(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const freezeZone = {
+      id: `freezezone_${Date.now()}`,
       ownerId: player.id,
-      x: player.x + Math.cos(player.angle) * 50,
-      y: player.y + Math.sin(player.angle) * 50,
-      health: 80,
-      damage: stats.bearDamage,
-      fireRate: stats.bearFireRate,
-      lastFireTime: 0,
-      endTime: Date.now() + stats.bearDuration,
-      isBear: true,
+      x: player.x,
+      y: player.y,
+      radius: ability?.radius || 100,
+      endTime: Date.now() + (ability?.duration || 3000),
+      slowAmount: ability?.slowAmount || 0.50,
+      freezeChance: ability?.freezeChance || 0.2,
+      type: 'freeze',
     };
 
-    this.turrets.push(bear);
-    this.io.to(this.code).emit('bear:spawn', bear);
+    this.healZones.push(freezeZone);
+    this.io.to(this.code).emit('freezeZone:spawn', freezeZone);
   }
+
+  activateRapidFire(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const duration = ability?.duration || 2000;
+    const multiplier = ability?.fireRateMultiplier || 3;
+
+    player.rapidFireActive = true;
+    player.rapidFireMultiplier = multiplier;
+    player.rapidFireEndTime = Date.now() + duration;
+
+    this.io.to(this.code).emit('player:rapidFire', {
+      playerId: player.id,
+      duration,
+    });
+  }
+
+  missileBarrage(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const missileCount = ability?.missileCount || 3;
+    const missileDamage = ability?.missileDamage || 25;
+    const explosionRadius = ability?.explosionRadius || 60;
+
+    for (let i = 0; i < missileCount; i++) {
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+        if (!this.gameStarted) return;
+
+        const angle = player.angle + (i - 1) * 0.3;
+        const targetX = player.x + Math.cos(angle) * 200;
+        const targetY = player.y + Math.sin(angle) * 200;
+
+        this.createExplosion(targetX, targetY, explosionRadius, player.id, missileDamage);
+      }, i * 200);
+      this.pendingTimeouts.push(timeoutId);
+    }
+
+    this.io.to(this.code).emit('player:missileBarrage', {
+      playerId: player.id,
+      x: player.x,
+      y: player.y,
+    });
+  }
+
+  moneyUltimate(player) {
+    const character = getCharacter(player.classType);
+    const ultimate = character?.ultimate;
+    const duration = ultimate?.duration || 6000;
+
+    player.damageAuraActive = true;
+    player.damageAuraEndTime = Date.now() + duration;
+    player.damageAuraRadius = 150;
+    player.damageAuraDamage = 10;
+
+    this.io.to(this.code).emit('ultimate:money', {
+      playerId: player.id,
+      duration,
+    });
+  }
+
+  blackMambaUltimate(player) {
+    const character = getCharacter(player.classType);
+    const ultimate = character?.ultimate;
+    const duration = ultimate?.duration || 5000;
+
+    // Create ice storm that damages and freezes all enemies
+    for (const other of this.players.values()) {
+      if (other.id === player.id || !other.alive) continue;
+      other.applySlowEffect(0.6, duration);
+      const result = other.takeDamage(40, player.id);
+      this.io.to(this.code).emit('player:hit', {
+        playerId: other.id,
+        damage: 40,
+        health: other.health,
+      });
+      if (result.died) {
+        this.handlePlayerDeath(other, player.id);
+      }
+    }
+
+    // Freeze and damage mobs
+    for (const mob of this.mobs) {
+      if (!mob.alive) continue;
+      mob.slowed = true;
+      mob.slowEndTime = Date.now() + duration;
+      mob.slowAmount = 0.6;
+      this.damageMob(mob, 40, player.id);
+    }
+
+    this.io.to(this.code).emit('ultimate:blackMamba', {
+      playerId: player.id,
+      duration,
+    });
+  }
+
+  nuclearStrike(player) {
+    const character = getCharacter(player.classType);
+    const ultimate = character?.ultimate;
+
+    // Carpet bomb the arena with explosions
+    for (let i = 0; i < 20; i++) {
+      const timeoutId = setTimeout(() => {
+        this.pendingTimeouts = this.pendingTimeouts.filter(id => id !== timeoutId);
+        if (!this.gameStarted) return;
+
+        const x = 100 + Math.random() * (GAME_CONFIG.WIDTH - 200);
+        const y = 100 + Math.random() * (GAME_CONFIG.HEIGHT - 200);
+        this.createExplosion(x, y, 80, player.id, 50);
+      }, i * 150);
+      this.pendingTimeouts.push(timeoutId);
+    }
+
+    this.io.to(this.code).emit('ultimate:nuclearStrike', {
+      playerId: player.id,
+    });
+  }
+
+  createHealZone(player) {
+    const character = getCharacter(player.classType);
+    const ability = character?.ability;
+    const healZone = {
+      id: `healzone_${Date.now()}`,
+      ownerId: player.id,
+      x: player.x,
+      y: player.y,
+      radius: ability?.radius || 120,
+      healPerSecond: ability?.healPerSecond || 8,
+      endTime: Date.now() + (ability?.duration || 5000),
+      type: 'heal',
+    };
+
+    this.healZones.push(healZone);
+    this.io.to(this.code).emit('healZone:spawn', healZone);
+  }
+
 
   handlePlayerShoot(playerId, data) {
     const player = this.players.get(playerId);
@@ -812,24 +1089,21 @@ export class Room {
 
     player.lastFireTime = now;
 
-    // Messi: Golden Ball ultimate - fire soccer balls in all directions
-    if (player.ultimateActive && player.classType === 'MESSI') {
+    const character = getCharacter(player.classType);
+
+    // Golden Ball ultimate - fire projectiles in all directions
+    if (player.ultimateActive && character?.ultimate?.effect === 'GOLDEN_BALL') {
       for (let i = 0; i < 8; i++) {
         const angle = (i / 8) * Math.PI * 2;
         this.spawnBullet(player, angle);
       }
     }
-    // Putin: Fires missiles (grenades)
-    else if (player.classType === 'PUTIN') {
-      this.spawnGrenade(player, data.angle);
+    // Scream ability characters - fire with spread
+    else if (character?.ability?.type === 'SCREAM') {
+      this.spawnBullet(player, data.angle - 0.08);
+      this.spawnBullet(player, data.angle + 0.08);
     }
-    // Milei: Fires 3 pesos in spread
-    else if (player.classType === 'MILEI') {
-      this.spawnBullet(player, data.angle - 0.1);
-      this.spawnBullet(player, data.angle);
-      this.spawnBullet(player, data.angle + 0.1);
-    }
-    // All others (Messi, Trump, Biden) fire single projectiles
+    // All others fire single projectiles
     else {
       this.spawnBullet(player, data.angle);
     }
@@ -856,31 +1130,6 @@ export class Room {
     this.bullets.push(bullet);
 
     this.io.to(this.code).emit('bullet:spawn', bullet);
-  }
-
-  spawnGrenade(player, angle) {
-    // Putin fires missiles
-    const stats = PLAYER_CLASSES.PUTIN;
-    const damage = player.getEffectiveDamage(stats.damage);
-    const speed = 450;
-
-    const grenade = {
-      id: `grenade_${Date.now()}_${Math.random()}`,
-      ownerId: player.id,
-      classType: player.classType, // Include for projectile type on client
-      x: player.x,
-      y: player.y,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      damage: damage,
-      splashDamage: player.getEffectiveDamage(stats.splashDamage),
-      explosionRadius: stats.explosionRadius,
-      explodeAt: Date.now() + stats.fuseTime,
-      createdAt: Date.now(),
-    };
-    this.grenades.push(grenade);
-
-    this.io.to(this.code).emit('grenade:spawn', grenade);
   }
 
   spawnPowerup() {

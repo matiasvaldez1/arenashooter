@@ -1,21 +1,19 @@
-// Programmatic pixel art sprite generator - FAMOUS PERSONALITIES EDITION!
+// Programmatic pixel art sprite generator - THEME-AWARE EDITION!
+import { getActiveThemeId, getCharacterList } from '../../../shared/constants.js';
 
 export class SpriteGenerator {
   static generateAll(scene) {
-    // Characters
-    this.generateMessi(scene);
-    this.generateMilei(scene);
-    this.generateTrump(scene);
-    this.generateBiden(scene);
-    this.generatePutin(scene);
+    // Generate characters for the active theme
+    this.generateThemeCharacters(scene);
 
-    // Projectiles
+    // Projectiles (all themes)
     this.generateSoccerBall(scene);
     this.generatePeso(scene);
     this.generateTweet(scene);
     this.generateIceCream(scene);
     this.generateMissile(scene);
     this.generateExplosion(scene);
+    this.generateKpopProjectiles(scene);
 
     // Environment
     this.generateArena(scene);
@@ -1290,5 +1288,464 @@ export class SpriteGenerator {
     moneyCtx.textAlign = 'center';
     moneyCtx.fillText('$', 5, 8);
     scene.textures.addCanvas('particle_money', moneyCanvas);
+  }
+
+  static generateThemeCharacters(scene) {
+    // Always generate all political characters (base game)
+    this.generateMessi(scene);
+    this.generateMilei(scene);
+    this.generateTrump(scene);
+    this.generateBiden(scene);
+    this.generatePutin(scene);
+
+    // Always generate K-pop characters too (for theme switching)
+    this.generateJungkook(scene);
+    this.generateMomo(scene);
+    this.generateHaewon(scene);
+    this.generateLisa(scene);
+    this.generateWinter(scene);
+  }
+
+  static generateJungkook(scene) {
+    const size = 48;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = '#00000044';
+    ctx.beginPath();
+    ctx.ellipse(24, 44, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body - Purple stage outfit
+    ctx.fillStyle = '#9b59b6';
+    ctx.fillRect(16, 16, 16, 22);
+
+    // White accents
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(16, 16, 2, 22);
+    ctx.fillRect(30, 16, 2, 22);
+
+    // Head
+    ctx.fillStyle = '#f5d0c5';
+    ctx.fillRect(18, 4, 12, 14);
+
+    // Dark wavy hair
+    ctx.fillStyle = '#2c1810';
+    ctx.fillRect(17, 2, 14, 8);
+    ctx.fillRect(15, 4, 4, 6);
+    ctx.fillRect(29, 4, 4, 6);
+
+    // Eyes
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(20, 8, 2, 2);
+    ctx.fillRect(26, 8, 2, 2);
+
+    // Smile
+    ctx.fillStyle = '#cc8888';
+    ctx.fillRect(22, 13, 4, 2);
+
+    // Microphone in hand
+    ctx.fillStyle = '#333333';
+    ctx.fillRect(36, 20, 4, 14);
+    ctx.fillStyle = '#666666';
+    ctx.beginPath();
+    ctx.arc(38, 18, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(18, 38, 5, 6);
+    ctx.fillRect(25, 38, 5, 6);
+
+    // Shoes
+    ctx.fillStyle = '#9b59b6';
+    ctx.fillRect(17, 44, 6, 4);
+    ctx.fillRect(25, 44, 6, 4);
+
+    scene.textures.addCanvas('jungkook', canvas);
+  }
+
+  static generateMomo(scene) {
+    const size = 48;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = '#00000044';
+    ctx.beginPath();
+    ctx.ellipse(24, 44, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body - Pink dance outfit
+    ctx.fillStyle = '#ff69b4';
+    ctx.fillRect(16, 16, 16, 20);
+
+    // Skirt
+    ctx.fillStyle = '#ff85c1';
+    ctx.fillRect(14, 32, 20, 6);
+
+    // Head
+    ctx.fillStyle = '#f8e0d0';
+    ctx.fillRect(18, 4, 12, 14);
+
+    // Black ponytail
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(17, 2, 14, 6);
+    ctx.fillRect(26, 0, 6, 12);
+    ctx.fillRect(30, 4, 4, 10);
+
+    // Eyes
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(20, 8, 2, 2);
+    ctx.fillRect(26, 8, 2, 2);
+
+    // Blush
+    ctx.fillStyle = '#ffcccc';
+    ctx.fillRect(18, 11, 2, 2);
+    ctx.fillRect(28, 11, 2, 2);
+
+    // Smile
+    ctx.fillStyle = '#cc8888';
+    ctx.fillRect(22, 13, 4, 2);
+
+    // Ribbon
+    ctx.fillStyle = '#ff69b4';
+    ctx.fillRect(32, 2, 6, 4);
+    ctx.fillRect(34, 0, 2, 8);
+
+    // Legs
+    ctx.fillStyle = '#f8e0d0';
+    ctx.fillRect(18, 38, 5, 6);
+    ctx.fillRect(25, 38, 5, 6);
+
+    // Shoes
+    ctx.fillStyle = '#ff69b4';
+    ctx.fillRect(17, 44, 6, 4);
+    ctx.fillRect(25, 44, 6, 4);
+
+    scene.textures.addCanvas('momo', canvas);
+  }
+
+  static generateHaewon(scene) {
+    const size = 48;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = '#00000044';
+    ctx.beginPath();
+    ctx.ellipse(24, 44, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body - Teal outfit
+    ctx.fillStyle = '#00d4aa';
+    ctx.fillRect(16, 16, 16, 22);
+
+    // White star accent
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(24, 20);
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+      const x = 24 + Math.cos(angle) * 4;
+      const y = 26 + Math.sin(angle) * 4;
+      ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    // Head
+    ctx.fillStyle = '#f5d8c8';
+    ctx.fillRect(18, 4, 12, 14);
+
+    // Brown flowing hair
+    ctx.fillStyle = '#8b4513';
+    ctx.fillRect(16, 2, 16, 7);
+    ctx.fillRect(14, 4, 5, 14);
+    ctx.fillRect(29, 4, 5, 14);
+
+    // Eyes
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(20, 8, 2, 2);
+    ctx.fillRect(26, 8, 2, 2);
+
+    // Star earrings
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(15, 10, 2, 2);
+    ctx.fillRect(31, 10, 2, 2);
+
+    // Smile
+    ctx.fillStyle = '#cc8888';
+    ctx.fillRect(22, 13, 4, 2);
+
+    // Legs
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(18, 38, 5, 6);
+    ctx.fillRect(25, 38, 5, 6);
+
+    // Shoes
+    ctx.fillStyle = '#00d4aa';
+    ctx.fillRect(17, 44, 6, 4);
+    ctx.fillRect(25, 44, 6, 4);
+
+    scene.textures.addCanvas('haewon', canvas);
+  }
+
+  static generateLisa(scene) {
+    const size = 48;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = '#00000044';
+    ctx.beginPath();
+    ctx.ellipse(24, 44, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body - Hot pink rapper outfit
+    ctx.fillStyle = '#ff0066';
+    ctx.fillRect(14, 16, 20, 22);
+
+    // Gold chains
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(18, 18, 12, 2);
+    ctx.fillRect(20, 20, 8, 2);
+    ctx.fillRect(22, 22, 4, 4);
+
+    // Head
+    ctx.fillStyle = '#f5d0c0';
+    ctx.fillRect(18, 4, 12, 14);
+
+    // Blonde bangs
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(16, 2, 16, 6);
+    ctx.fillRect(14, 4, 20, 5);
+    ctx.fillRect(16, 6, 4, 6);
+    ctx.fillRect(28, 6, 4, 6);
+
+    // Eyes
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(20, 9, 2, 2);
+    ctx.fillRect(26, 9, 2, 2);
+
+    // Lipstick
+    ctx.fillStyle = '#ff0066';
+    ctx.fillRect(22, 14, 4, 2);
+
+    // Legs
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(16, 38, 7, 6);
+    ctx.fillRect(25, 38, 7, 6);
+
+    // Shoes
+    ctx.fillStyle = '#ff0066';
+    ctx.fillRect(14, 44, 9, 4);
+    ctx.fillRect(25, 44, 9, 4);
+
+    scene.textures.addCanvas('lisa', canvas);
+  }
+
+  static generateWinter(scene) {
+    const size = 48;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+
+    // Shadow
+    ctx.fillStyle = '#00000044';
+    ctx.beginPath();
+    ctx.ellipse(24, 44, 12, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body - Ice blue futuristic outfit
+    ctx.fillStyle = '#87ceeb';
+    ctx.fillRect(14, 16, 20, 22);
+
+    // Silver accents
+    ctx.fillStyle = '#c0c0c0';
+    ctx.fillRect(14, 16, 2, 22);
+    ctx.fillRect(32, 16, 2, 22);
+    ctx.fillRect(20, 28, 8, 2);
+
+    // Head
+    ctx.fillStyle = '#fff0f0';
+    ctx.fillRect(18, 4, 12, 14);
+
+    // Silver long hair
+    ctx.fillStyle = '#c0c0c0';
+    ctx.fillRect(16, 2, 16, 8);
+    ctx.fillRect(14, 4, 5, 18);
+    ctx.fillRect(29, 4, 5, 18);
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillRect(17, 3, 14, 4);
+
+    // Eyes - icy blue
+    ctx.fillStyle = '#87ceeb';
+    ctx.fillRect(20, 8, 3, 3);
+    ctx.fillRect(25, 8, 3, 3);
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(21, 9, 1, 1);
+    ctx.fillRect(26, 9, 1, 1);
+
+    // Crystal accessory
+    ctx.fillStyle = '#87ceeb';
+    ctx.beginPath();
+    ctx.moveTo(24, 0);
+    ctx.lineTo(26, 3);
+    ctx.lineTo(24, 6);
+    ctx.lineTo(22, 3);
+    ctx.closePath();
+    ctx.fill();
+
+    // Legs
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillRect(16, 38, 7, 6);
+    ctx.fillRect(25, 38, 7, 6);
+
+    // Shoes
+    ctx.fillStyle = '#87ceeb';
+    ctx.fillRect(14, 44, 9, 4);
+    ctx.fillRect(25, 44, 9, 4);
+
+    scene.textures.addCanvas('winter', canvas);
+  }
+
+  static generateKpopProjectiles(scene) {
+    // Music note projectile
+    const noteSize = 16;
+    const noteCanvas = document.createElement('canvas');
+    noteCanvas.width = noteSize;
+    noteCanvas.height = noteSize;
+    const noteCtx = noteCanvas.getContext('2d');
+
+    noteCtx.fillStyle = '#9b59b6';
+    noteCtx.beginPath();
+    noteCtx.ellipse(10, 12, 4, 3, 0.3, 0, Math.PI * 2);
+    noteCtx.fill();
+    noteCtx.fillRect(13, 4, 2, 8);
+    noteCtx.fillStyle = '#9b59b6';
+    noteCtx.fillRect(13, 2, 5, 3);
+
+    noteCtx.strokeStyle = '#9b59b666';
+    noteCtx.lineWidth = 2;
+    noteCtx.beginPath();
+    noteCtx.arc(8, 8, 7, 0, Math.PI * 2);
+    noteCtx.stroke();
+
+    scene.textures.addCanvas('music_note', noteCanvas);
+
+    // Heart projectile
+    const heartSize = 16;
+    const heartCanvas = document.createElement('canvas');
+    heartCanvas.width = heartSize;
+    heartCanvas.height = heartSize;
+    const heartCtx = heartCanvas.getContext('2d');
+
+    heartCtx.fillStyle = '#ff69b4';
+    heartCtx.beginPath();
+    heartCtx.moveTo(8, 14);
+    heartCtx.bezierCurveTo(8, 14, 2, 8, 2, 5);
+    heartCtx.bezierCurveTo(2, 2, 5, 2, 8, 5);
+    heartCtx.bezierCurveTo(11, 2, 14, 2, 14, 5);
+    heartCtx.bezierCurveTo(14, 8, 8, 14, 8, 14);
+    heartCtx.fill();
+
+    heartCtx.strokeStyle = '#ff69b466';
+    heartCtx.lineWidth = 2;
+    heartCtx.beginPath();
+    heartCtx.arc(8, 8, 7, 0, Math.PI * 2);
+    heartCtx.stroke();
+
+    scene.textures.addCanvas('heart', heartCanvas);
+
+    // Star projectile
+    const starSize = 16;
+    const starCanvas = document.createElement('canvas');
+    starCanvas.width = starSize;
+    starCanvas.height = starSize;
+    const starCtx = starCanvas.getContext('2d');
+
+    starCtx.fillStyle = '#00d4aa';
+    starCtx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+      const x = 8 + Math.cos(angle) * 6;
+      const y = 8 + Math.sin(angle) * 6;
+      if (i === 0) starCtx.moveTo(x, y);
+      else starCtx.lineTo(x, y);
+    }
+    starCtx.closePath();
+    starCtx.fill();
+
+    starCtx.strokeStyle = '#00d4aa66';
+    starCtx.lineWidth = 2;
+    starCtx.beginPath();
+    starCtx.arc(8, 8, 7, 0, Math.PI * 2);
+    starCtx.stroke();
+
+    scene.textures.addCanvas('star', starCanvas);
+
+    // Diamond projectile
+    const diamondSize = 16;
+    const diamondCanvas = document.createElement('canvas');
+    diamondCanvas.width = diamondSize;
+    diamondCanvas.height = diamondSize;
+    const diamondCtx = diamondCanvas.getContext('2d');
+
+    diamondCtx.fillStyle = '#ff0066';
+    diamondCtx.beginPath();
+    diamondCtx.moveTo(8, 2);
+    diamondCtx.lineTo(14, 8);
+    diamondCtx.lineTo(8, 14);
+    diamondCtx.lineTo(2, 8);
+    diamondCtx.closePath();
+    diamondCtx.fill();
+
+    diamondCtx.strokeStyle = '#ff006666';
+    diamondCtx.lineWidth = 2;
+    diamondCtx.beginPath();
+    diamondCtx.arc(8, 8, 7, 0, Math.PI * 2);
+    diamondCtx.stroke();
+
+    scene.textures.addCanvas('diamond', diamondCanvas);
+
+    // Snowflake projectile
+    const snowSize = 16;
+    const snowCanvas = document.createElement('canvas');
+    snowCanvas.width = snowSize;
+    snowCanvas.height = snowSize;
+    const snowCtx = snowCanvas.getContext('2d');
+
+    snowCtx.strokeStyle = '#87ceeb';
+    snowCtx.lineWidth = 2;
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      snowCtx.beginPath();
+      snowCtx.moveTo(8, 8);
+      snowCtx.lineTo(8 + Math.cos(angle) * 6, 8 + Math.sin(angle) * 6);
+      snowCtx.stroke();
+    }
+
+    snowCtx.fillStyle = '#87ceeb';
+    snowCtx.beginPath();
+    snowCtx.arc(8, 8, 2, 0, Math.PI * 2);
+    snowCtx.fill();
+
+    snowCtx.strokeStyle = '#87ceeb66';
+    snowCtx.beginPath();
+    snowCtx.arc(8, 8, 7, 0, Math.PI * 2);
+    snowCtx.stroke();
+
+    scene.textures.addCanvas('snowflake', snowCanvas);
   }
 }

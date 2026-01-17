@@ -1,363 +1,85 @@
-// Map configurations
-export const MAPS = {
-  ARENA: {
-    id: 'ARENA',
-    name: 'Arena Clasica',
-    nameEn: 'Classic Arena',
-    description: 'El campo de batalla original',
-    descriptionEn: 'The original battlefield',
-    color: '#4a4a6a',
-    hasMobs: false,
-    hazards: ['LAVA', 'SPIKES'],
-    spawnPoints: [
-      { x: 100, y: 100 }, { x: 1180, y: 100 },
-      { x: 100, y: 620 }, { x: 1180, y: 620 },
-      { x: 640, y: 100 }, { x: 640, y: 620 },
-      { x: 100, y: 360 }, { x: 1180, y: 360 },
-    ],
-    barrels: [
-      { x: 300, y: 200 }, { x: 980, y: 200 },
-      { x: 300, y: 520 }, { x: 980, y: 520 },
-      { x: 640, y: 360 },
-    ],
-  },
+// Map configurations - now theme-aware
+import { getActiveTheme, getActiveMaps, getActiveMobs } from './themes/index.js';
 
-  CONGRESO: {
-    id: 'CONGRESO',
-    name: 'El Congreso',
-    nameEn: 'The Congress',
-    description: 'Protestas en el Congreso Argentino - Cuidado con los manifestantes!',
-    descriptionEn: 'Protests at Argentine Congress - Watch out for protesters!',
-    color: '#8B4513',
-    hasMobs: true,
-    mobType: 'PROTESTER',
-    mobCount: 8,
-    mobRespawnTime: 10000,
-    hazards: ['TEAR_GAS', 'FIRE'],
-    spawnPoints: [
-      { x: 150, y: 150 }, { x: 1130, y: 150 },
-      { x: 150, y: 570 }, { x: 1130, y: 570 },
-      { x: 640, y: 150 }, { x: 640, y: 570 },
-      { x: 150, y: 360 }, { x: 1130, y: 360 },
-    ],
-    barrels: [
-      { x: 400, y: 250 }, { x: 880, y: 250 },
-      { x: 400, y: 470 }, { x: 880, y: 470 },
-    ],
-    // Congress building is in the center-top
-    obstacles: [
-      { x: 640, y: 80, width: 400, height: 100, type: 'BUILDING' },
-    ],
-  },
+// Dynamic MAPS getter for backward compatibility
+export function getMaps() {
+  return getActiveMaps();
+}
 
-  CASA_ROSADA: {
-    id: 'CASA_ROSADA',
-    name: 'Casa Rosada',
-    nameEn: 'Pink House',
-    description: 'Plaza de Mayo - El corazon politico de Argentina',
-    descriptionEn: 'Plaza de Mayo - The political heart of Argentina',
-    color: '#FFB6C1',
-    hasMobs: true,
-    mobType: 'CACEROLAZO',
-    mobCount: 6,
-    mobRespawnTime: 12000,
-    hazards: [],
-    spawnPoints: [
-      { x: 150, y: 200 }, { x: 1130, y: 200 },
-      { x: 150, y: 520 }, { x: 1130, y: 520 },
-      { x: 400, y: 360 }, { x: 880, y: 360 },
-      { x: 640, y: 200 }, { x: 640, y: 520 },
-    ],
-    barrels: [
-      { x: 320, y: 300 }, { x: 960, y: 300 },
-      { x: 320, y: 420 }, { x: 960, y: 420 },
-    ],
-    obstacles: [
-      { x: 640, y: 60, width: 500, height: 80, type: 'BUILDING' },
-    ],
+// Backward compatible MAPS export (computed from active theme)
+export const MAPS = new Proxy({}, {
+  get(target, prop) {
+    const maps = getActiveMaps();
+    return maps[prop];
   },
+  ownKeys() {
+    return Object.keys(getActiveMaps());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    const maps = getActiveMaps();
+    if (prop in maps) {
+      return { enumerable: true, configurable: true, value: maps[prop] };
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    return prop in getActiveMaps();
+  },
+});
 
-  BOMBONERA: {
-    id: 'BOMBONERA',
-    name: 'La Bombonera',
-    nameEn: 'La Bombonera Stadium',
-    description: 'El templo del futbol - La hinchada tira de todo!',
-    descriptionEn: 'The temple of football - The crowd throws everything!',
-    color: '#0000AA',
-    hasMobs: true,
-    mobType: 'HINCHA',
-    mobCount: 10,
-    mobRespawnTime: 8000,
-    hazards: ['THROWN_OBJECTS'],
-    spawnPoints: [
-      { x: 200, y: 200 }, { x: 1080, y: 200 },
-      { x: 200, y: 520 }, { x: 1080, y: 520 },
-      { x: 640, y: 250 }, { x: 640, y: 470 },
-      { x: 400, y: 360 }, { x: 880, y: 360 },
-    ],
-    barrels: [],
-    // Goal posts as obstacles
-    obstacles: [
-      { x: 100, y: 360, width: 40, height: 200, type: 'GOAL' },
-      { x: 1180, y: 360, width: 40, height: 200, type: 'GOAL' },
-    ],
-  },
+// Dynamic MOBS getter
+export function getMobs() {
+  return getActiveMobs();
+}
 
-  KREMLIN: {
-    id: 'KREMLIN',
-    name: 'El Kremlin',
-    nameEn: 'The Kremlin',
-    description: 'Plaza Roja - Desfile militar y osos sueltos!',
-    descriptionEn: 'Red Square - Military parade and loose bears!',
-    color: '#8B0000',
-    hasMobs: true,
-    mobType: 'BEAR',
-    mobCount: 4,
-    mobRespawnTime: 15000,
-    hazards: ['TANK_CROSSING'],
-    spawnPoints: [
-      { x: 150, y: 150 }, { x: 1130, y: 150 },
-      { x: 150, y: 570 }, { x: 1130, y: 570 },
-      { x: 400, y: 300 }, { x: 880, y: 300 },
-      { x: 400, y: 420 }, { x: 880, y: 420 },
-    ],
-    barrels: [
-      { x: 640, y: 200 }, { x: 640, y: 520 },
-    ],
-    obstacles: [
-      { x: 640, y: 60, width: 300, height: 80, type: 'BUILDING' },
-    ],
+// Backward compatible MOBS export
+export const MOBS = new Proxy({}, {
+  get(target, prop) {
+    const mobs = getActiveMobs();
+    return mobs[prop];
   },
+  ownKeys() {
+    return Object.keys(getActiveMobs());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    const mobs = getActiveMobs();
+    if (prop in mobs) {
+      return { enumerable: true, configurable: true, value: mobs[prop] };
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    return prop in getActiveMobs();
+  },
+});
 
-  MAR_A_LAGO: {
-    id: 'MAR_A_LAGO',
-    name: 'Mar-a-Lago',
-    nameEn: 'Mar-a-Lago',
-    description: 'Club de golf - Cuidado con los carritos!',
-    descriptionEn: 'Golf club - Watch out for the golf carts!',
-    color: '#228B22',
-    hasMobs: true,
-    mobType: 'GOLF_CART',
-    mobCount: 3,
-    mobRespawnTime: 12000,
-    hazards: ['SAND_BUNKER', 'WATER'],
-    spawnPoints: [
-      { x: 200, y: 150 }, { x: 1080, y: 150 },
-      { x: 200, y: 570 }, { x: 1080, y: 570 },
-      { x: 640, y: 200 }, { x: 640, y: 520 },
-      { x: 350, y: 360 }, { x: 930, y: 360 },
-    ],
-    barrels: [
-      { x: 500, y: 280 }, { x: 780, y: 280 },
-      { x: 500, y: 440 }, { x: 780, y: 440 },
-    ],
-    obstacles: [],
-  },
+// Dynamic BOSS_MOBS getter
+export function getBossMobs() {
+  const theme = getActiveTheme();
+  return theme.bosses || {};
+}
 
-  OBELISCO: {
-    id: 'OBELISCO',
-    name: 'Obelisco',
-    nameEn: 'Obelisk',
-    description: 'Avenida 9 de Julio - Cuidado con el trafico!',
-    descriptionEn: '9 de Julio Avenue - Watch out for traffic!',
-    color: '#505050',
-    hasMobs: false,
-    hazards: [],
-    dynamicHazards: {
-      TRAFFIC: {
-        enabled: true,
-        lanes: [
-          { y: 180, direction: 1, speed: 400 },
-          { y: 250, direction: -1, speed: 350 },
-          { y: 520, direction: 1, speed: 380 },
-          { y: 590, direction: -1, speed: 420 },
-        ],
-        spawnInterval: 2000,
-        damage: 40,
-        carWidth: 80,
-        carHeight: 40,
-      },
-    },
-    spawnPoints: [
-      { x: 200, y: 360 }, { x: 1080, y: 360 },
-      { x: 640, y: 320 }, { x: 640, y: 400 },
-      { x: 400, y: 360 }, { x: 880, y: 360 },
-      { x: 300, y: 360 }, { x: 980, y: 360 },
-    ],
-    barrels: [
-      { x: 300, y: 360 }, { x: 980, y: 360 },
-      { x: 450, y: 360 }, { x: 830, y: 360 },
-    ],
-    obstacles: [
-      { x: 640, y: 360, width: 60, height: 200, type: 'OBELISK' },
-    ],
+// Backward compatible BOSS_MOBS export
+export const BOSS_MOBS = new Proxy({}, {
+  get(target, prop) {
+    return getBossMobs()[prop];
   },
+  ownKeys() {
+    return Object.keys(getBossMobs());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    const bosses = getBossMobs();
+    if (prop in bosses) {
+      return { enumerable: true, configurable: true, value: bosses[prop] };
+    }
+    return undefined;
+  },
+  has(target, prop) {
+    return prop in getBossMobs();
+  },
+});
 
-  COLISEO: {
-    id: 'COLISEO',
-    name: 'Coliseo',
-    nameEn: 'Colosseum',
-    description: 'Arena romana - Leones y trampas de pinchos!',
-    descriptionEn: 'Roman arena - Lions and spike traps!',
-    color: '#8B7355',
-    hasMobs: false,
-    hazards: [],
-    dynamicHazards: {
-      LIONS: {
-        enabled: true,
-        spawnInterval: 15000,
-        maxLions: 3,
-        lionHealth: 80,
-        lionDamage: 35,
-        lionSpeed: 180,
-      },
-      RISING_SPIKES: {
-        enabled: true,
-        interval: 8000,
-        warningTime: 2000,
-        damage: 30,
-        radius: 60,
-        positions: [
-          { x: 640, y: 360 },
-          { x: 400, y: 250 },
-          { x: 880, y: 250 },
-          { x: 400, y: 470 },
-          { x: 880, y: 470 },
-        ],
-      },
-    },
-    spawnPoints: [
-      { x: 150, y: 150 }, { x: 1130, y: 150 },
-      { x: 150, y: 570 }, { x: 1130, y: 570 },
-      { x: 640, y: 150 }, { x: 640, y: 570 },
-      { x: 300, y: 360 }, { x: 980, y: 360 },
-    ],
-    barrels: [
-      { x: 300, y: 200 }, { x: 980, y: 200 },
-      { x: 300, y: 520 }, { x: 980, y: 520 },
-    ],
-    obstacles: [],
-  },
-
-  VOLCANO: {
-    id: 'VOLCANO',
-    name: 'Volcan',
-    nameEn: 'Volcano',
-    description: 'Volcan activo - Erupciones y rocas cayendo!',
-    descriptionEn: 'Active volcano - Eruptions and falling rocks!',
-    color: '#8B0000',
-    hasMobs: false,
-    hazards: [
-      { type: 'LAVA', x: 540, y: 310, width: 200, height: 100 },
-    ],
-    dynamicHazards: {
-      ERUPTION: {
-        enabled: true,
-        interval: 10000,
-        warningTime: 3000,
-        lavaPools: 3,
-        lavaRadius: 60,
-        lavaDuration: 8000,
-        damage: 15,
-        tickRate: 500,
-      },
-      FALLING_ROCKS: {
-        enabled: true,
-        interval: 4000,
-        warningTime: 1500,
-        damage: 30,
-        radius: 50,
-      },
-    },
-    spawnPoints: [
-      { x: 150, y: 150 }, { x: 1130, y: 150 },
-      { x: 150, y: 570 }, { x: 1130, y: 570 },
-      { x: 300, y: 300 }, { x: 980, y: 300 },
-      { x: 300, y: 420 }, { x: 980, y: 420 },
-    ],
-    barrels: [
-      { x: 200, y: 250 }, { x: 1080, y: 250 },
-      { x: 200, y: 470 }, { x: 1080, y: 470 },
-    ],
-    obstacles: [],
-  },
-};
-
-// Mob configurations
-export const MOBS = {
-  PROTESTER: {
-    name: 'Manifestante',
-    nameEn: 'Protester',
-    health: 40,
-    damage: 15,
-    speed: 120,
-    attackRange: 50,
-    attackRate: 1.5,
-    color: '#FF6600',
-    aggroRange: 200,
-    description: 'Angry protester with signs and molotov cocktails',
-  },
-  CACEROLAZO: {
-    name: 'Cacerolero',
-    nameEn: 'Pot Banger',
-    health: 30,
-    damage: 10,
-    speed: 100,
-    attackRange: 40,
-    attackRate: 2,
-    color: '#C0C0C0',
-    aggroRange: 150,
-    description: 'Citizen banging pots, stuns on hit',
-    stunDuration: 500,
-  },
-  HINCHA: {
-    name: 'Hincha',
-    nameEn: 'Football Fan',
-    health: 35,
-    damage: 12,
-    speed: 140,
-    attackRange: 60,
-    attackRate: 1.8,
-    color: '#0000FF',
-    aggroRange: 180,
-    description: 'Passionate football fan throwing things',
-    canCharge: true,
-    chargeDamage: 25,
-    chargeSpeed: 280,
-    chargeCooldown: 5000,
-  },
-  BEAR: {
-    name: 'Oso',
-    nameEn: 'Bear',
-    health: 100,
-    damage: 35,
-    speed: 90,
-    attackRange: 70,
-    attackRate: 1,
-    color: '#8B4513',
-    aggroRange: 250,
-    description: 'Russian bear on the loose!',
-  },
-  GOLF_CART: {
-    name: 'Carrito de Golf',
-    nameEn: 'Golf Cart',
-    health: 80,
-    damage: 25,
-    speed: 200,
-    attackRange: 30,
-    attackRate: 0.5,
-    color: '#FFFFFF',
-    aggroRange: 300,
-    description: 'Runaway golf cart!',
-    isVehicle: true,
-    canCharge: true,
-    chargeDamage: 35,
-    chargeSpeed: 350,
-    chargeCooldown: 4000,
-  },
-};
-
-// Map-specific hazards
+// Map-specific hazards (shared across themes)
 export const MAP_HAZARDS = {
   TEAR_GAS: {
     name: 'Gas Lacrimogeno',
@@ -429,62 +151,16 @@ export const MAP_HAZARDS = {
     aggroRange: 300,
     color: '#DAA520',
   },
-};
-
-// Boss mob configurations for Infinite Horde mode
-export const BOSS_MOBS = {
-  MEGA_BEAR: {
-    name: 'Mega Oso',
-    nameEn: 'Mega Bear',
-    health: 500,
-    damage: 50,
-    speed: 70,
-    attackRange: 80,
-    attackRate: 0.8,
-    color: '#8B0000',
-    aggroRange: 400,
-    description: 'Giant bear that drops powerups on death',
-    isBoss: true,
-    dropsPowerup: true,
-    ultimateCharge: 25,
-    scale: 2.5,
-  },
-  TANK: {
-    name: 'Tanque',
-    nameEn: 'Tank',
-    health: 400,
-    damage: 30,
-    speed: 100,
-    attackRange: 60,
-    attackRate: 1.2,
-    color: '#444444',
-    aggroRange: 350,
-    description: 'Armored tank that charges at players',
-    isBoss: true,
-    canCharge: true,
-    chargeDamage: 60,
-    chargeSpeed: 300,
-    chargeCooldown: 5000,
-    dropsPowerup: true,
-    ultimateCharge: 20,
-    scale: 2.0,
-  },
-  HELICOPTER: {
-    name: 'Helicoptero',
-    nameEn: 'Helicopter',
-    health: 300,
+  PYRO: {
+    name: 'Pyrotechnics',
     damage: 20,
-    speed: 120,
-    attackRange: 250,
-    attackRate: 2,
-    color: '#2F4F4F',
-    aggroRange: 500,
-    description: 'Flying boss with ranged attacks',
-    isBoss: true,
-    isFlying: true,
-    projectileSpeed: 400,
-    dropsPowerup: true,
-    ultimateCharge: 20,
-    scale: 2.2,
+    tickRate: 500,
+    color: '#FF6600',
+  },
+  CROWD_SURGE: {
+    name: 'Crowd Surge',
+    damage: 10,
+    knockback: 100,
+    color: '#FF00FF',
   },
 };
