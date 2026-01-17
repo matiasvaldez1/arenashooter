@@ -821,6 +821,7 @@ export class Room {
         health: m.health,
         maxHealth: m.maxHealth,
       })),
+      timeRemaining: this.getTimeRemaining(),
     };
   }
 
