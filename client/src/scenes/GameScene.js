@@ -2,6 +2,7 @@ import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
 import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES, PERKS, MAP_MODIFIERS } from '../../../shared/constants.js';
 import { MAPS, MOBS } from '../../../shared/maps.js';
+import { t } from '../utils/i18n.js';
 
 export class GameScene extends Phaser.Scene {
   constructor() {
@@ -2400,7 +2401,7 @@ export class GameScene extends Phaser.Scene {
     this.perkSelectionContainer.add(overlay);
 
     // Title
-    const title = this.add.text(0, -180, 'CHOOSE A PERK', {
+    const title = this.add.text(0, -180, t('game.choosePerk'), {
       fontSize: '32px',
       fill: '#00ffff',
       fontFamily: 'Courier New',
@@ -2409,7 +2410,7 @@ export class GameScene extends Phaser.Scene {
     this.perkSelectionContainer.add(title);
 
     // Timer
-    this.perkTimerText = this.add.text(0, -140, `Time: ${Math.ceil(timeRemaining / 1000)}s`, {
+    this.perkTimerText = this.add.text(0, -140, `${t('game.time')} ${Math.ceil(timeRemaining / 1000)}s`, {
       fontSize: '18px',
       fill: '#ffff00',
       fontFamily: 'Courier New',
@@ -2552,7 +2553,7 @@ export class GameScene extends Phaser.Scene {
     this.gameOverContainer.add(overlay);
 
     // Title
-    const title = this.add.text(0, -150, 'GAME OVER', {
+    const title = this.add.text(0, -150, t('game.gameOver'), {
       fontSize: '48px',
       fill: '#ff4444',
       fontFamily: 'Courier New',
@@ -2561,7 +2562,7 @@ export class GameScene extends Phaser.Scene {
     this.gameOverContainer.add(title);
 
     // Final wave
-    const waveText = this.add.text(0, -80, `Final Wave: ${finalWave}`, {
+    const waveText = this.add.text(0, -80, `${t('game.finalWave')} ${finalWave}`, {
       fontSize: '28px',
       fill: '#00ffff',
       fontFamily: 'Courier New',
@@ -2571,9 +2572,9 @@ export class GameScene extends Phaser.Scene {
 
     // Stats
     const statsText = this.add.text(0, 0, [
-      `Total Kills: ${stats.totalKills || 0}`,
-      `Perks Collected: ${stats.perksCollected || 0}`,
-      `Time Survived: ${Math.floor((stats.timeSurvived || 0) / 1000)}s`,
+      `${t('game.totalKills')} ${stats.totalKills || 0}`,
+      `${t('game.perksCollected')} ${stats.perksCollected || 0}`,
+      `${t('game.timeSurvived')} ${Math.floor((stats.timeSurvived || 0) / 1000)}s`,
     ].join('\n'), {
       fontSize: '18px',
       fill: '#ffffff',
@@ -2589,7 +2590,7 @@ export class GameScene extends Phaser.Scene {
     btnBg.setInteractive({ useHandCursor: true });
     this.gameOverContainer.add(btnBg);
 
-    const btnText = this.add.text(0, 120, 'RETURN TO LOBBY', {
+    const btnText = this.add.text(0, 120, t('game.returnLobby'), {
       fontSize: '16px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -2696,7 +2697,7 @@ export class GameScene extends Phaser.Scene {
 
     // Title
     const isWinner = winner && winner.id === SocketManager.playerId;
-    const titleText = isWinner ? 'VICTORY!' : 'GAME OVER';
+    const titleText = isWinner ? t('game.victory') : t('game.gameOver');
     const titleColor = isWinner ? '#00ff88' : '#ff4444';
 
     const title = this.add.text(0, -150, titleText, {
@@ -2709,7 +2710,7 @@ export class GameScene extends Phaser.Scene {
 
     // Winner info
     if (winner) {
-      const winnerText = this.add.text(0, -80, `Winner: ${winner.name} (${winner.score} pts)`, {
+      const winnerText = this.add.text(0, -80, `${t('game.winner')}: ${winner.name} (${winner.score} pts)`, {
         fontSize: '24px',
         fill: '#ffff00',
         fontFamily: 'Courier New',
@@ -2719,7 +2720,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Scoreboard
-    const scoreTitle = this.add.text(0, -30, 'FINAL SCORES', {
+    const scoreTitle = this.add.text(0, -30, t('game.finalScores'), {
       fontSize: '20px',
       fill: '#00ffff',
       fontFamily: 'Courier New',
@@ -2747,7 +2748,7 @@ export class GameScene extends Phaser.Scene {
     playAgainBg.setInteractive({ useHandCursor: true });
     this.arenaResultsContainer.add(playAgainBg);
 
-    const playAgainText = this.add.text(-110, btnY, 'PLAY AGAIN', {
+    const playAgainText = this.add.text(-110, btnY, t('game.playAgain'), {
       fontSize: '16px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -2767,7 +2768,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.setInteractive({ useHandCursor: true });
     this.arenaResultsContainer.add(lobbyBg);
 
-    const lobbyText = this.add.text(110, btnY, 'LOBBY', {
+    const lobbyText = this.add.text(110, btnY, t('game.returnLobby'), {
       fontSize: '16px',
       fill: '#ffffff',
       fontFamily: 'Courier New',

@@ -1,5 +1,6 @@
 import { SpriteGenerator } from '../utils/SpriteGenerator.js';
 import { SocketManager } from '../network/SocketManager.js';
+import { t } from '../utils/i18n.js';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -7,7 +8,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    const loadingText = this.add.text(400, 300, 'Loading...', {
+    const loadingText = this.add.text(400, 300, t('boot.loading'), {
       fontSize: '24px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -25,7 +26,7 @@ export class BootScene extends Phaser.Scene {
       .catch((error) => {
         console.error('Failed to connect:', error);
         this.add
-          .text(400, 350, 'Failed to connect to server!', {
+          .text(400, 350, t('boot.connectionFailed'), {
             fontSize: '16px',
             fill: '#ff4444',
             fontFamily: 'Courier New',
