@@ -1177,19 +1177,14 @@ export class Room {
     if (this.waveMobsSpawned >= this.waveMobsToSpawn) return null;
     if (this.mobs.length >= WAVE_CONFIG.MAX_MOBS_ALIVE) return null;
 
-    // Select mob type based on wave
-    const mobTypes = Object.keys(MOBS);
-    let mobType;
+    // Use map's mob type as primary enemy
+    const map = MAPS[this.selectedMap];
+    const primaryMobType = map?.mobType || 'PROTESTER';
+    let mobType = primaryMobType;
 
-    if (this.waveNumber <= 2) {
-      // Early waves: weak mobs
-      mobType = mobTypes.filter(t => MOBS[t].health <= 40)[0] || mobTypes[0];
-    } else if (this.waveNumber <= 5) {
-      // Mid waves: random weak/medium
-      const available = mobTypes.filter(t => MOBS[t].health <= 60);
-      mobType = available[Math.floor(Math.random() * available.length)] || mobTypes[0];
-    } else {
-      // Late waves: any mob including strong ones
+    // Later waves: mix in other mob types for variety
+    if (this.waveNumber >= 4 && Math.random() < 0.3) {
+      const mobTypes = Object.keys(MOBS);
       mobType = mobTypes[Math.floor(Math.random() * mobTypes.length)];
     }
 
@@ -1500,16 +1495,14 @@ export class Room {
       return null;
     }
 
-    // Select mob type based on wave
-    const mobTypes = Object.keys(MOBS);
-    let mobType;
+    // Use map's mob type as primary enemy
+    const map = MAPS[this.selectedMap];
+    const primaryMobType = map?.mobType || 'PROTESTER';
+    let mobType = primaryMobType;
 
-    if (this.waveNumber <= 3) {
-      mobType = mobTypes.filter(t => MOBS[t].health <= 40)[0] || mobTypes[0];
-    } else if (this.waveNumber <= 8) {
-      const available = mobTypes.filter(t => MOBS[t].health <= 60);
-      mobType = available[Math.floor(Math.random() * available.length)] || mobTypes[0];
-    } else {
+    // Later waves: mix in other mob types for variety
+    if (this.waveNumber >= 5 && Math.random() < 0.3) {
+      const mobTypes = Object.keys(MOBS);
       mobType = mobTypes[Math.floor(Math.random() * mobTypes.length)];
     }
 
