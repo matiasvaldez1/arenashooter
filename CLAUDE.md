@@ -39,6 +39,7 @@ npm run build    # Production build
 - **Constants** - SCREAMING_SNAKE_CASE in `shared/constants.js`
 - **Classes** - PascalCase (e.g., `GameScene`, `SocketManager`)
 - **Commit messages** - All lowercase, 1 line max, no AI/Claude mentions
+- **Comments** - Only essential comments; no obvious explanations, no comment spam. Code should be self-documenting.
 
 ## Important Files
 
@@ -103,6 +104,23 @@ To test:
 3. Create a room, note the code
 4. Open another tab, join with the code
 5. Test gameplay features
+
+## Claude Code Agents
+
+Custom subagents in `.claude/agents/`:
+
+| Agent | Purpose |
+|-------|---------|
+| `live-debugger` | Real-time browser debugging via Chrome MCP. Watches console, executes JS, captures screenshots, inspects WebSocket traffic. |
+
+**Usage**: `Use live-debugger to check why player movement isn't syncing`
+
+**Useful debug commands** (run in browser via agent):
+```javascript
+game.scene.scenes[0].players      // All players
+game.scene.scenes[0].localPlayer  // Local player
+game.scene.scenes[0].socket       // Socket instance
+```
 
 ## Environment
 

@@ -438,18 +438,6 @@ class SoundManagerClass {
     osc.start(time);
     osc.stop(time + 0.03);
   }
-
-  setMusicVolume(value) {
-    if (this.musicGain) {
-      this.musicGain.gain.value = value;
-    }
-  }
-
-  setSFXVolume(value) {
-    if (this.sfxGain) {
-      this.sfxGain.gain.value = value;
-    }
-  }
 }
 
 export const SoundManager = new SoundManagerClass();

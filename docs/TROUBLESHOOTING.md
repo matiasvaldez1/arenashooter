@@ -115,13 +115,41 @@ taskkill /PID <pid> /F
 - Older browsers may not support ES modules
 - Mobile browsers are not fully supported
 
+## Live Debugging with Claude
+
+Use the `live-debugger` agent for real-time browser debugging via Chrome MCP:
+
+```
+Use live-debugger to check why player movement isn't syncing
+```
+
+**What it can do:**
+- Watch console logs and Socket.io events in real-time
+- Execute JavaScript to inspect Phaser game state
+- Capture screenshots of visual issues
+- Inspect WebSocket traffic for missing/malformed events
+
+**Useful debug commands** (executed by the agent):
+```javascript
+game.scene.scenes[0].players      // All players state
+game.scene.scenes[0].localPlayer  // Local player
+game.scene.scenes[0].socket       // Socket.io instance
+game.scene.scenes[0].roomState    // Current room state
+```
+
+**Common debugging scenarios:**
+- Player desync: Compare client position with server broadcast
+- Missing events: Check if socket.connected is true
+- State mismatch: Inspect roomState vs visual representation
+
 ## Getting Help
 
 If you encounter issues not covered here:
 
 1. Check the server console for error messages
 2. Check the browser console (F12 -> Console)
-3. Open an issue with:
+3. Use the `live-debugger` agent for real-time inspection
+4. Open an issue with:
    - Steps to reproduce
    - Error messages
    - Browser and OS version

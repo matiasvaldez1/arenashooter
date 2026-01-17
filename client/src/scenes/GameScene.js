@@ -9,12 +9,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   init(data) {
-    console.log('GameScene init with data:', data);
-    console.log('MapId received:', data.mapId);
     this.serverPlayers = data.players || {};
     this.mapId = data.mapId || 'ARENA';
     this.mapConfig = MAPS[this.mapId] || MAPS.ARENA;
-    console.log('Using map:', this.mapId, this.mapConfig);
     this.localPlayers = {};
     this.bullets = {};
     this.grenades = {};
@@ -35,17 +32,13 @@ export class GameScene extends Phaser.Scene {
     this.perkSelectionActive = false;
     this.selectedPerkId = null;
 
-    // Arena mode timer
-    this.gameDuration = data.gameDuration || null;
-    this.gameStartTime = Date.now();
+    // Arena mode timer (synced from server)
+    this.serverTimeRemaining = null;
     this.gameEnded = false;
   }
 
   create() {
-    // Start the dubstep!
     SoundManager.startDubstep();
-
-    // Arena background - use map-specific texture or tint
     this.createMapBackground();
 
     // Create groups
@@ -263,6 +256,11 @@ export class GameScene extends Phaser.Scene {
         if (this.fogGraphics) {
           this.updateFogOfWar();
         }
+      }
+
+      // Update game timer from server
+      if (state.timeRemaining !== undefined) {
+        this.serverTimeRemaining = state.timeRemaining;
       }
     });
 
@@ -2489,7 +2487,7 @@ export class GameScene extends Phaser.Scene {
     bg.on('pointerdown', () => {
       if (!this.selectedPerkId) {
         this.selectedPerkId = perkId;
-        SocketManager.emit('wave:selectPerk', { perkId });
+        SocketManager.selectPerk(perkId);
         bg.setFillStyle(0x004444);
         bg.setStrokeStyle(3, 0x00ff00);
       }
@@ -2670,8 +2668,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   onPerkSelected(data) {
-    // Another player selected a perk (could show notification)
-    console.log(`Player ${data.playerId} selected perk ${data.perkId}`);
+    // Could show notification for other players
   }
 
   onWaveGameOver(data) {
@@ -2761,7 +2758,7 @@ export class GameScene extends Phaser.Scene {
     playAgainBg.on('pointerover', () => playAgainBg.setFillStyle(0x66aa66));
     playAgainBg.on('pointerout', () => playAgainBg.setFillStyle(0x448844));
     playAgainBg.on('pointerdown', () => {
-      SocketManager.emit('game:playAgain');
+      SocketManager.playAgain();
     });
 
     // Return to lobby button
@@ -2984,19 +2981,19 @@ export class GameScene extends Phaser.Scene {
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer || !myPlayer.alive) return;
 
-    SocketManager.emit('player:ability');
+    SocketManager.useAbility();
   }
 
   handleUltimate() {
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer || !myPlayer.alive) return;
 
-    SocketManager.emit('player:ultimate');
+    SocketManager.useUltimate();
   }
 
   updateGameTimer() {
-    // Only update for Arena mode with a duration
-    if (this.gameMode !== 'ARENA' || !this.gameDuration) {
+    // Only update for Arena mode
+    if (this.gameMode !== 'ARENA' || this.serverTimeRemaining === null || this.serverTimeRemaining === undefined) {
       if (this.gameTimerText) {
         this.gameTimerText.setVisible(false);
         this.timerBg.setVisible(false);
@@ -3004,8 +3001,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const elapsed = Date.now() - this.gameStartTime;
-    const remaining = Math.max(0, this.gameDuration - elapsed);
+    const remaining = Math.max(0, this.serverTimeRemaining);
     const seconds = Math.ceil(remaining / 1000);
     const minutes = Math.floor(seconds / 60);
     const secs = seconds % 60;

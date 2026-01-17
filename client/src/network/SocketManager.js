@@ -97,8 +97,23 @@ class SocketManagerClass {
       console.warn('Cannot selectMap: not connected');
       return;
     }
-    console.log('SocketManager emitting room:selectMap with mapId:', mapId);
     this.socket.emit('room:selectMap', { mapId });
+  }
+
+  selectGameMode(mode) {
+    if (!this.socket || !this.connected) {
+      console.warn('Cannot selectGameMode: not connected');
+      return;
+    }
+    this.socket.emit('room:selectGameMode', { mode });
+  }
+
+  changeStep(step) {
+    if (!this.socket || !this.connected) {
+      console.warn('Cannot changeStep: not connected');
+      return;
+    }
+    this.socket.emit('room:changeStep', { step });
   }
 
   setReady(ready) {
@@ -121,6 +136,34 @@ class SocketManagerClass {
       return; // Silent fail for high-frequency action
     }
     this.socket.emit('player:shoot', { angle });
+  }
+
+  useAbility() {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+    this.socket.emit('player:ability');
+  }
+
+  useUltimate() {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+    this.socket.emit('player:ultimate');
+  }
+
+  selectPerk(perkId) {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+    this.socket.emit('wave:selectPerk', { perkId });
+  }
+
+  playAgain() {
+    if (!this.socket || !this.connected) {
+      return;
+    }
+    this.socket.emit('game:playAgain');
   }
 
   on(event, callback) {

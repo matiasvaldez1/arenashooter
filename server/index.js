@@ -7,52 +7,33 @@ import { fileURLToPath } from 'url';
 import { Room } from './game/Room.js';
 import { ROOM_CONFIG } from '../shared/constants.js';
 
-// ES Module dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
 
-// CORS configuration - allow localhost in dev, same origin in production
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
-      // Allow requests with no origin (same-origin, mobile apps, etc.)
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-      // Allow localhost for development
-      if (origin.startsWith('http://localhost:')) {
-        callback(null, true);
-        return;
-      }
-      // Allow Render URLs and custom domains
-      if (origin.includes('.onrender.com') || process.env.CLIENT_URL === origin) {
-        callback(null, true);
-        return;
-      }
-      // In production, allow same origin
+      if (!origin) return callback(null, true);
+      if (origin.startsWith('http://localhost:')) return callback(null, true);
+      if (origin.includes('.onrender.com') || process.env.CLIENT_URL === origin) return callback(null, true);
       callback(null, true);
     },
     methods: ['GET', 'POST'],
   },
 });
 
-// Serve static files from client build in production
 const clientDistPath = path.join(__dirname, '../client/dist');
 app.use(express.static(clientDistPath));
 
-// Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(clientDistPath, 'index.html'));
 });
 
-// Store active rooms
 const rooms = new Map();
 
-// Generate room code
 function generateRoomCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let code = '';
@@ -65,7 +46,6 @@ function generateRoomCode() {
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`);
 
-  // Create a new room
   socket.on('room:create', (callback) => {
     try {
       let roomCode;
@@ -88,7 +68,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Join an existing room
   socket.on('room:join', ({ roomCode, playerName }, callback) => {
     try {
       const room = rooms.get(roomCode);
@@ -130,6 +109,7 @@ io.on('connection', (socket) => {
         players: room.getPlayersInfo(),
         selectedMap: room.getSelectedMap(),
         gameMode: room.gameMode,
+        lobbyStep: room.lobbyStep || 0,
       });
     } catch (error) {
       console.error('Error joining room:', error);
@@ -139,7 +119,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Select map (host only in practice, but server doesn't enforce)
   socket.on('room:selectMap', ({ mapId }) => {
     try {
       console.log(`Map selection request: ${mapId} for room ${socket.roomCode}`);
@@ -158,7 +137,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Select game mode (host only)
   socket.on('room:selectGameMode', ({ mode }) => {
     try {
       console.log(`Game mode selection request: ${mode} for room ${socket.roomCode}`);
@@ -177,7 +155,22 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Select perk (wave survival mode)
+  socket.on('room:changeStep', ({ step }) => {
+    try {
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room && !room.gameStarted) {
+        const players = Array.from(room.players.keys());
+        if (players[0] === socket.id) {
+          room.lobbyStep = step;
+          socket.to(socket.roomCode).emit('room:stepChanged', { step });
+        }
+      }
+    } catch (error) {
+      console.error('Error changing lobby step:', error);
+    }
+  });
+
   socket.on('wave:selectPerk', ({ perkId }) => {
     try {
       if (!socket.roomCode) return;
@@ -190,7 +183,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Select character class
   socket.on('player:selectClass', ({ classType }) => {
     try {
       if (!socket.roomCode) return;
@@ -206,7 +198,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Player ready status
   socket.on('player:ready', ({ ready }) => {
     try {
       if (!socket.roomCode) return;
@@ -217,7 +208,6 @@ io.on('connection', (socket) => {
           players: room.getPlayersInfo(),
         });
 
-        // Check if all players are ready
         if (room.allPlayersReady() && room.players.size >= 1) {
           room.startGame();
         }
@@ -227,7 +217,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Play again (restart game with same players)
   socket.on('game:playAgain', () => {
     try {
       if (!socket.roomCode) return;
@@ -241,7 +230,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Player input (movement, aiming)
   socket.on('player:input', (input) => {
     try {
       if (!socket.roomCode) return;
@@ -254,7 +242,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Player shoot
   socket.on('player:shoot', (data) => {
     try {
       if (!socket.roomCode) return;
@@ -267,7 +254,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Disconnect handling
   socket.on('disconnect', () => {
     try {
       console.log(`Player disconnected: ${socket.id}`);
@@ -281,7 +267,6 @@ io.on('connection', (socket) => {
           players: room.getPlayersInfo(),
         });
 
-        // Clean up empty rooms
         if (room.players.size === 0) {
           room.stopGame();
           rooms.delete(socket.roomCode);

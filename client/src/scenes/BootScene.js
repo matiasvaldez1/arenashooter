@@ -7,7 +7,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload() {
-    // Create loading text
     const loadingText = this.add.text(400, 300, 'Loading...', {
       fontSize: '24px',
       fill: '#ffffff',
@@ -17,10 +16,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // Generate all sprites programmatically
     SpriteGenerator.generateAll(this);
 
-    // Connect to server
     SocketManager.connect()
       .then(() => {
         this.scene.start('MenuScene');
