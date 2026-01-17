@@ -3455,8 +3455,9 @@ export class GameScene extends Phaser.Scene {
     const cardSpacing = 200;
     const startX = -(perks.length - 1) * cardSpacing / 2;
 
-    perks.forEach((perkId, i) => {
-      const perk = PERKS[perkId];
+    perks.forEach((perkData, i) => {
+      const perkId = perkData.id || perkData;
+      const perk = PERKS[perkId] || perkData;
       if (!perk) return;
 
       const cardX = startX + i * cardSpacing;

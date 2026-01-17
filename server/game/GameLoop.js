@@ -336,7 +336,18 @@ export class GameLoop {
         const dx = grenade.x - barrel.x;
         const dy = grenade.y - barrel.y;
         if (Math.sqrt(dx * dx + dy * dy) < 25) {
-          grenade.explodeAt = Date.now(); // Explode now
+          grenade.explodeAt = Date.now();
+          break;
+        }
+      }
+
+      // Check mob collision - explode on contact with enemies
+      for (const mob of this.room.mobs) {
+        if (!mob.alive) continue;
+        const dx = grenade.x - mob.x;
+        const dy = grenade.y - mob.y;
+        if (Math.sqrt(dx * dx + dy * dy) < 30) {
+          grenade.explodeAt = Date.now();
           break;
         }
       }

@@ -824,7 +824,7 @@ export class Room {
     // Putin fires missiles
     const stats = PLAYER_CLASSES.PUTIN;
     const damage = player.getEffectiveDamage(stats.damage);
-    const speed = 300;
+    const speed = 450;
 
     const grenade = {
       id: `grenade_${Date.now()}_${Math.random()}`,
