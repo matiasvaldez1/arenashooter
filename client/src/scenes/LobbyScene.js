@@ -1021,12 +1021,9 @@ export class LobbyScene extends Phaser.Scene {
     // Transition out current step (only if different from new step)
     const currentContainer = this.stepContainers[this.currentStep];
     if (currentContainer && this.currentStep !== step) {
-      this.tweens.add({
-        targets: currentContainer,
-        alpha: 0,
-        duration: 150,
-        onComplete: () => currentContainer.setVisible(false),
-      });
+      // Hide immediately to prevent visual overlap during transition
+      currentContainer.setVisible(false);
+      currentContainer.setAlpha(0);
     }
 
     const previousStep = this.currentStep;
@@ -1037,16 +1034,15 @@ export class LobbyScene extends Phaser.Scene {
     const newContainer = this.stepContainers[step];
     if (newContainer) {
       newContainer.setVisible(true);
-      // Only animate if transitioning from a different step
+      // Fade in for smooth appearance
       if (previousStep !== step) {
         newContainer.setAlpha(0);
         this.tweens.add({
           targets: newContainer,
           alpha: 1,
-          duration: 200,
+          duration: 150,
         });
       } else {
-        // First load - just show immediately
         newContainer.setAlpha(1);
       }
     }

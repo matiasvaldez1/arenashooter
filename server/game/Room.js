@@ -1859,7 +1859,8 @@ export class Room {
     console.log(`Arena game ended in room ${this.code}`);
 
     // Find winner (highest score)
-    const scores = this.getScores();
+    const scoresObj = this.getScores();
+    const scores = Object.values(scoresObj);
     scores.sort((a, b) => b.score - a.score);
     const winner = scores.length > 0 ? scores[0] : null;
 
