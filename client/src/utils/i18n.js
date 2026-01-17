@@ -79,7 +79,7 @@ const translations = {
     'streak.godlike': 'MODO DIOS!',
     'streak.legendary': 'LEGENDARIO!',
 
-    // Characters
+    // Characters - Politics
     'char.messi.name': 'Messi',
     'char.messi.desc': 'El GOAT - Gambetas rapidas, tiros mortales!',
     'char.milei.name': 'Milei',
@@ -90,6 +90,18 @@ const translations = {
     'char.biden.desc': 'Cura aliados con helado, roba vida!',
     'char.putin.name': 'Putin',
     'char.putin.desc': 'Lanza misiles, despliega osos!',
+
+    // Characters - K-pop
+    'char.jungkook.name': 'Jungkook',
+    'char.jungkook.desc': 'Golden Maknae - Todoterreno con movimientos explosivos!',
+    'char.momo.name': 'Momo',
+    'char.momo.desc': 'Reina del Baile - Velocidad y gracia!',
+    'char.haewon.name': 'Haewon',
+    'char.haewon.desc': 'Poder Vocal - Ondas sonicas devastadoras!',
+    'char.lisa.name': 'Lisa',
+    'char.lisa.desc': 'Rapera Letal - Fuego rapido y estilo!',
+    'char.winter.name': 'Winter',
+    'char.winter.desc': 'Reina del Hielo - Congela a tus enemigos!',
 
     // Ultimates
     'ult.goldenBall': 'Pelota de Oro',
@@ -102,6 +114,18 @@ const translations = {
     'ult.executiveOrderDesc': 'Intercambia vida con el enemigo mas debil!',
     'ult.nuclearStrike': 'Ataque Nuclear',
     'ult.nuclearStrikeDesc': 'Lluvia de misiles en toda la arena!',
+
+    // Ultimates - K-pop
+    'ult.dynamite': 'Dynamite',
+    'ult.dynamiteDesc': 'Fuegos artificiales explosivos caen del cielo!',
+    'ult.fancy': 'Fancy',
+    'ult.fancyDesc': 'Hipnotiza enemigos, reduciendolos drasticamente!',
+    'ult.oo': 'O.O',
+    'ult.ooDesc': 'Ondas sonicas danan a todos los enemigos en pantalla!',
+    'ult.money': 'Money',
+    'ult.moneyDesc': 'Aura de dano y velocidad de ataque aumentada!',
+    'ult.blackMamba': 'Black Mamba',
+    'ult.blackMambaDesc': 'Tormenta de hielo congela y dana a todos los enemigos!',
 
     // Powerups
     'powerup.speed': 'Energizante',
@@ -250,7 +274,7 @@ const translations = {
     'streak.godlike': 'GODLIKE!',
     'streak.legendary': 'LEGENDARY!',
 
-    // Characters
+    // Characters - Politics
     'char.messi.name': 'Messi',
     'char.messi.desc': 'The GOAT - Fast dribbles, deadly shots!',
     'char.milei.name': 'Milei',
@@ -262,7 +286,19 @@ const translations = {
     'char.putin.name': 'Putin',
     'char.putin.desc': 'Launches missiles, deploys bears!',
 
-    // Ultimates
+    // Characters - K-pop
+    'char.jungkook.name': 'Jungkook',
+    'char.jungkook.desc': 'Golden Maknae - All-rounder with explosive moves!',
+    'char.momo.name': 'Momo',
+    'char.momo.desc': 'Dance Queen - Speed and grace!',
+    'char.haewon.name': 'Haewon',
+    'char.haewon.desc': 'Vocal Power - Devastating sonic waves!',
+    'char.lisa.name': 'Lisa',
+    'char.lisa.desc': 'Lethal Rapper - Rapid fire and style!',
+    'char.winter.name': 'Winter',
+    'char.winter.desc': 'Ice Queen - Freeze your enemies!',
+
+    // Ultimates - Politics
     'ult.goldenBall': 'Golden Ball',
     'ult.goldenBallDesc': 'Become unstoppable, rapid fire soccer balls everywhere!',
     'ult.dollarization': 'Dollarization',
@@ -273,6 +309,18 @@ const translations = {
     'ult.executiveOrderDesc': 'Swap health with the lowest enemy!',
     'ult.nuclearStrike': 'Nuclear Strike',
     'ult.nuclearStrikeDesc': 'Rain missiles across the entire arena!',
+
+    // Ultimates - K-pop
+    'ult.dynamite': 'Dynamite',
+    'ult.dynamiteDesc': 'Explosive fireworks rain from the sky!',
+    'ult.fancy': 'Fancy',
+    'ult.fancyDesc': 'Mesmerize enemies, slowing them drastically!',
+    'ult.oo': 'O.O',
+    'ult.ooDesc': 'Sonic shockwaves damage all enemies on screen!',
+    'ult.money': 'Money',
+    'ult.moneyDesc': 'Damage aura and increased attack speed!',
+    'ult.blackMamba': 'Black Mamba',
+    'ult.blackMambaDesc': 'Ice storm freezes and damages all enemies!',
 
     // Powerups
     'powerup.speed': 'Energy Drink',

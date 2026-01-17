@@ -3469,16 +3469,11 @@ export class GameScene extends Phaser.Scene {
   createPerkCard(x, y, perkId, perk, width) {
     const height = 220;
 
-    // Background - add directly to scene, not container
+    // Background - position relative to container (which is already centered)
     const bg = this.add.rectangle(x, y, width, height, 0x222244, 1);
     bg.setStrokeStyle(3, 0x00ffff);
     bg.setScrollFactor(0);
     bg.setDepth(501);
-
-    // Adjust position relative to screen center
-    const centerX = GAME_CONFIG.WIDTH / 2;
-    const centerY = GAME_CONFIG.HEIGHT / 2;
-    bg.setPosition(centerX + x, centerY + y);
 
     // Icon
     const iconColors = {
@@ -3493,12 +3488,12 @@ export class GameScene extends Phaser.Scene {
       PROJECTILE_SIZE: 0xaaaaaa,
       ULTIMATE_CHARGE: 0xff00ff,
     };
-    const icon = this.add.circle(centerX + x, centerY + y - 70, 25, iconColors[perkId] || 0xffffff);
+    const icon = this.add.circle(x, y - 70, 25, iconColors[perkId] || 0xffffff);
     icon.setScrollFactor(0);
     icon.setDepth(502);
 
     // Name
-    const nameText = this.add.text(centerX + x, centerY + y - 30, perk.name, {
+    const nameText = this.add.text(x, y - 30, perk.name, {
       fontSize: '14px',
       fill: '#ffffff',
       fontFamily: 'Courier New',
@@ -3510,7 +3505,7 @@ export class GameScene extends Phaser.Scene {
     nameText.setDepth(502);
 
     // Description
-    const descText = this.add.text(centerX + x, centerY + y + 30, perk.description, {
+    const descText = this.add.text(x, y + 30, perk.description, {
       ...fontStyle('small', COLORS.textMuted),
       wordWrap: { width: width - 20 },
       align: 'center',
@@ -3961,6 +3956,7 @@ export class GameScene extends Phaser.Scene {
     lobbyBg.on('pointerout', () => lobbyBg.setFillStyle(0x444488));
     lobbyBg.on('pointerdown', () => {
       SoundManager.stopDubstep();
+      this.shutdown();
       this.scene.start('LobbyScene');
     });
   }
@@ -4001,6 +3997,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateUltimateUI() {
+    if (!this.ultimateText || !this.ultimateBarFill) return;
+
     const myPlayer = this.localPlayers[SocketManager.playerId];
     if (!myPlayer) return;
 

@@ -1,6 +1,6 @@
 import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
-import { GAME_CONFIG } from '../../../shared/constants.js';
+import { GAME_CONFIG, getActiveTheme } from '../../../shared/constants.js';
 import { t, toggleLanguage, getLanguage } from '../utils/i18n.js';
 import { COLORS, fontStyle } from '../config/theme.js';
 
@@ -94,11 +94,17 @@ export class MenuScene extends Phaser.Scene {
     const W = GAME_CONFIG.WIDTH;
     const H = GAME_CONFIG.HEIGHT;
 
+    // Get theme colors
+    const theme = getActiveTheme();
+    const bgColors = theme.ui?.bgGradient || ['#1a1a2e', '#16213e'];
+    const bg1 = Phaser.Display.Color.HexStringToColor(bgColors[0]).color;
+    const bg2 = Phaser.Display.Color.HexStringToColor(bgColors[1]).color;
+
     // Gradient background
     const graphics = this.add.graphics();
 
-    // Base dark gradient
-    graphics.fillGradientStyle(0x1a1a2e, 0x1a1a2e, 0x16213e, 0x16213e);
+    // Base dark gradient using theme colors
+    graphics.fillGradientStyle(bg1, bg1, bg2, bg2);
     graphics.fillRect(0, 0, W, H);
 
     // Animated scan lines
@@ -129,7 +135,11 @@ export class MenuScene extends Phaser.Scene {
 
     this.neonBorder.clear();
 
-    const colors = [0xff00ff, 0x00ffff, 0xffff00, 0xff0088];
+    const theme = getActiveTheme();
+    const primary = Phaser.Display.Color.HexStringToColor(theme.ui?.primary || '#ff00ff').color;
+    const secondary = Phaser.Display.Color.HexStringToColor(theme.ui?.secondary || '#00ffff').color;
+    const accent = Phaser.Display.Color.HexStringToColor(theme.ui?.accent || '#ffff00').color;
+    const colors = [primary, secondary, accent, primary];
     const colorIndex = Math.floor(phase / 25) % colors.length;
 
     this.neonBorder.lineStyle(4, colors[colorIndex], 0.8);
@@ -143,11 +153,17 @@ export class MenuScene extends Phaser.Scene {
     const W = GAME_CONFIG.WIDTH;
     const H = GAME_CONFIG.HEIGHT;
 
+    // Get theme colors for particles
+    const theme = getActiveTheme();
+    const primary = Phaser.Display.Color.HexStringToColor(theme.ui?.primary || '#ff00ff').color;
+    const secondary = Phaser.Display.Color.HexStringToColor(theme.ui?.secondary || '#00ffff').color;
+    const accent = Phaser.Display.Color.HexStringToColor(theme.ui?.accent || '#ffff00').color;
+    const colors = [primary, secondary, accent, 0x00ff88];
+
     // Floating neon particles
     for (let i = 0; i < 40; i++) {
       const x = Math.random() * W;
       const y = Math.random() * H;
-      const colors = [0xff00ff, 0x00ffff, 0xffff00, 0x00ff88];
       const color = colors[Math.floor(Math.random() * colors.length)];
 
       const particle = this.add.circle(x, y, 2 + Math.random() * 3, color, 0.6);
@@ -168,6 +184,11 @@ export class MenuScene extends Phaser.Scene {
   }
 
   createTitle() {
+    const theme = getActiveTheme();
+    const primary = theme.ui?.primary || '#ff00ff';
+    const secondary = theme.ui?.secondary || '#00ffff';
+    const accent = theme.ui?.accent || '#ffff00';
+
     // Shadow
     this.add
       .text(this.centerX + 4, 74, t('game.title'), {
@@ -183,7 +204,7 @@ export class MenuScene extends Phaser.Scene {
     this.titleText = this.add
       .text(this.centerX, 70, t('game.title'), {
         fontSize: '56px',
-        fill: '#ff00ff',
+        fill: primary,
         fontFamily: 'Courier New',
         fontStyle: 'bold',
       })
@@ -193,14 +214,14 @@ export class MenuScene extends Phaser.Scene {
     this.subtitleText = this.add
       .text(this.centerX, 130, t('game.subtitle'), {
         fontSize: '24px',
-        fill: '#00ffff',
+        fill: secondary,
         fontFamily: 'Courier New',
       })
       .setOrigin(0.5);
     this.translatableTexts.push({ text: this.subtitleText, key: 'game.subtitle' });
 
-    // Animate title colors
-    const titleColors = ['#ff00ff', '#ff0088', '#ff4444', '#ffaa00', '#ffff00', '#00ff88', '#00ffff'];
+    // Animate title colors using theme colors
+    const titleColors = [primary, accent, '#ff4444', '#ffaa00', accent, '#00ff88', secondary];
     let colorIndex = 0;
 
     this.time.addEvent({
@@ -213,9 +234,22 @@ export class MenuScene extends Phaser.Scene {
       loop: true,
     });
 
+    // Theme indicator badge
+    const themeBadge = this.add.container(this.centerX, 165);
+    const badgeBg = this.add.rectangle(0, 0, 180, 28, 0x000000, 0.7);
+    const themeColor = Phaser.Display.Color.HexStringToColor(primary).color;
+    badgeBg.setStrokeStyle(2, themeColor);
+    const themeText = this.add.text(0, 0, `${theme.flag || ''} ${theme.name}`, {
+      fontSize: '14px',
+      fill: primary,
+      fontFamily: 'Courier New',
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
+    themeBadge.add([badgeBg, themeText]);
+
     // Bouncing decorative text
-    const decoLeft = this.add.text(this.centerX - 300, 70, '>>>', { fontSize: '32px', fill: '#ffff00', fontFamily: 'Courier New' });
-    const decoRight = this.add.text(this.centerX + 250, 70, '<<<', { fontSize: '32px', fill: '#ffff00', fontFamily: 'Courier New' });
+    const decoLeft = this.add.text(this.centerX - 300, 70, '>>>', { fontSize: '32px', fill: accent, fontFamily: 'Courier New' });
+    const decoRight = this.add.text(this.centerX + 250, 70, '<<<', { fontSize: '32px', fill: accent, fontFamily: 'Courier New' });
 
     this.tweens.add({
       targets: [decoLeft, decoRight],
