@@ -47,7 +47,7 @@ export const KPOP_THEME = {
 
       sprite: {
         skinTone: '#f5d0c5',
-        hairColor: '#2c1810',
+        hairColor: '#1a1a1a',
         hairStyle: 'wavy',
         outfit: 'stage_outfit',
         outfitColor: '#9b59b6',
@@ -95,8 +95,8 @@ export const KPOP_THEME = {
 
       sprite: {
         skinTone: '#f8e0d0',
-        hairColor: '#1a1a1a',
-        hairStyle: 'ponytail',
+        hairColor: '#f5deb3',
+        hairStyle: 'bangs',
         outfit: 'dance_outfit',
         outfitColor: '#ff69b4',
         accessory: 'ribbon',
@@ -140,8 +140,8 @@ export const KPOP_THEME = {
       },
 
       sprite: {
-        skinTone: '#f5d8c8',
-        hairColor: '#8b4513',
+        skinTone: '#fff5f0',
+        hairColor: '#1a1a1a',
         hairStyle: 'flowing',
         outfit: 'vocal_outfit',
         outfitColor: '#00d4aa',
