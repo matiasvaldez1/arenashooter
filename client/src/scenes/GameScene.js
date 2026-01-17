@@ -3472,8 +3472,7 @@ export class GameScene extends Phaser.Scene {
     // Background - position relative to container (which is already centered)
     const bg = this.add.rectangle(x, y, width, height, 0x222244, 1);
     bg.setStrokeStyle(3, 0x00ffff);
-    bg.setScrollFactor(0);
-    bg.setDepth(501);
+    bg.setInteractive({ useHandCursor: true });
 
     // Icon
     const iconColors = {
@@ -3489,8 +3488,6 @@ export class GameScene extends Phaser.Scene {
       ULTIMATE_CHARGE: 0xff00ff,
     };
     const icon = this.add.circle(x, y - 70, 25, iconColors[perkId] || 0xffffff);
-    icon.setScrollFactor(0);
-    icon.setDepth(502);
 
     // Name
     const nameText = this.add.text(x, y - 30, perk.name, {
@@ -3501,8 +3498,6 @@ export class GameScene extends Phaser.Scene {
       wordWrap: { width: width - 20 },
       align: 'center',
     }).setOrigin(0.5);
-    nameText.setScrollFactor(0);
-    nameText.setDepth(502);
 
     // Description
     const descText = this.add.text(x, y + 30, perk.description, {
@@ -3510,14 +3505,9 @@ export class GameScene extends Phaser.Scene {
       wordWrap: { width: width - 20 },
       align: 'center',
     }).setOrigin(0.5);
-    descText.setScrollFactor(0);
-    descText.setDepth(502);
 
     // Add to container for easy cleanup
     this.perkSelectionContainer.add([bg, icon, nameText, descText]);
-
-    // Make bg rectangle interactive
-    bg.setInteractive({ useHandCursor: true });
 
     bg.on('pointerover', () => {
       bg.setStrokeStyle(3, 0xffff00);
