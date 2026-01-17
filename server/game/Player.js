@@ -270,8 +270,8 @@ export class Player {
 
     // Charge ultimate (passive + bonus from movement)
     const chargeRate = this.getEffectiveUltimateChargeRate();
-    const baseCharge = deltaTime * 2 * chargeRate;
-    const moveBonus = (dx !== 0 || dy !== 0) ? deltaTime * 2 * chargeRate : 0;
+    const baseCharge = deltaTime * 5 * chargeRate;
+    const moveBonus = (dx !== 0 || dy !== 0) ? deltaTime * 5 * chargeRate : 0;
     this.ultimateCharge = Math.min(100, this.ultimateCharge + baseCharge + moveBonus);
   }
 

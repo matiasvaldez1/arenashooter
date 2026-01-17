@@ -256,6 +256,21 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('player:ultimate', () => {
+    try {
+      if (!socket.roomCode) return;
+      const room = rooms.get(socket.roomCode);
+      if (room && room.gameStarted) {
+        const player = room.players.get(socket.id);
+        if (player) {
+          room.handleUltimate(player);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling player ultimate:', error);
+    }
+  });
+
   socket.on('disconnect', () => {
     try {
       console.log(`Player disconnected: ${socket.id}`);

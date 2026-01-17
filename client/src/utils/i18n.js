@@ -65,6 +65,7 @@ const translations = {
     'game.killedBy': 'te elimino',
     'game.youKilled': 'Eliminaste a',
     'game.gameOver': 'FIN DEL JUEGO',
+    'game.finalKill': 'BAJA FINAL',
     'game.winner': 'GANADOR',
     'game.returnToLobby': 'Volviendo al lobby...',
     'game.press': 'PRESIONA',
@@ -162,6 +163,16 @@ const translations = {
     'misc.roomNotFound': 'Sala no encontrada',
     'misc.roomFull': 'Sala llena',
     'misc.language': 'Idioma',
+
+    // Infinite Horde Mode
+    'horde.title': 'Horda Infinita',
+    'horde.description': 'Oleadas sin fin con jefes cada 3 oleadas',
+    'horde.bossWave': 'OLEADA DE JEFE',
+    'horde.bossDefeated': 'JEFE DERROTADO!',
+    'horde.bossesKilled': 'Jefes Eliminados:',
+    'boss.megaBear': 'Mega Oso',
+    'boss.tank': 'Tanque',
+    'boss.helicopter': 'Helicoptero',
   },
 
   'en': {
@@ -225,6 +236,7 @@ const translations = {
     'game.killedBy': 'killed you',
     'game.youKilled': 'You killed',
     'game.gameOver': 'GAME OVER',
+    'game.finalKill': 'FINAL KILL',
     'game.winner': 'WINNER',
     'game.returnToLobby': 'Returning to lobby...',
     'game.press': 'PRESS',
@@ -322,6 +334,16 @@ const translations = {
     'misc.roomNotFound': 'Room not found',
     'misc.roomFull': 'Room is full',
     'misc.language': 'Language',
+
+    // Infinite Horde Mode
+    'horde.title': 'Infinite Horde',
+    'horde.description': 'Endless waves with boss fights every 3 waves',
+    'horde.bossWave': 'BOSS WAVE',
+    'horde.bossDefeated': 'BOSS DEFEATED!',
+    'horde.bossesKilled': 'Bosses Killed:',
+    'boss.megaBear': 'Mega Bear',
+    'boss.tank': 'Tank',
+    'boss.helicopter': 'Helicopter',
   },
 };
 
