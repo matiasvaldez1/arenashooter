@@ -18,7 +18,7 @@ const io = new Server(httpServer, {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
       if (origin.startsWith('http://localhost:')) return callback(null, true);
-      if (origin.includes('.onrender.com') || process.env.CLIENT_URL === origin) return callback(null, true);
+      if (origin.includes('.onrender.com') || origin.includes('.fly.dev') || process.env.CLIENT_URL === origin) return callback(null, true);
       callback(null, true);
     },
     methods: ['GET', 'POST'],

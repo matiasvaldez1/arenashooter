@@ -25,7 +25,9 @@ class SocketManagerClass {
         reject(new Error('Connection timeout'));
       }, timeoutMs);
 
-      this.socket = io(SERVER_URL);
+      this.socket = io(SERVER_URL, {
+        transports: ['websocket'],
+      });
 
       this.socket.on('connect', () => {
         clearTimeout(timeout);
