@@ -638,8 +638,11 @@ export class Room {
   }
 
   dollarization(player) {
-    // Milei's ultimate - damage aura and double damage for duration
-    const damage = 15;
+    // Milei's ultimate - damage aura explosion
+    const damage = 40;
+    const radius = 200;
+
+    // Damage nearby players (PvP)
     for (const other of this.players.values()) {
       if (other.id === player.id || !other.alive) continue;
 
@@ -647,7 +650,7 @@ export class Room {
       const dy = other.y - player.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < 120) {
+      if (dist < radius) {
         const result = other.takeDamage(damage, player.id);
         this.io.to(this.code).emit('player:hit', {
           playerId: other.id,
@@ -659,10 +662,32 @@ export class Room {
         }
       }
     }
+
+    // Damage nearby mobs (Wave Survival)
+    for (const mob of this.mobs) {
+      if (!mob.alive) continue;
+
+      const dx = mob.x - player.x;
+      const dy = mob.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < radius) {
+        mob.health -= damage;
+        this.io.to(this.code).emit('mob:hit', {
+          mobId: mob.id,
+          damage,
+          health: mob.health,
+        });
+        if (mob.health <= 0) {
+          mob.alive = false;
+          this.onMobDeath(mob, player.id);
+        }
+      }
+    }
   }
 
   lifeSwap(player) {
-    // Find player with lowest health
+    // Find player with lowest health (PvP mode)
     let lowestPlayer = null;
     let lowestHealth = Infinity;
 
@@ -675,6 +700,7 @@ export class Room {
     }
 
     if (lowestPlayer) {
+      // Swap health with lowest enemy player
       const tempHealth = player.health;
       player.health = lowestPlayer.health;
       lowestPlayer.health = tempHealth;
@@ -684,6 +710,18 @@ export class Room {
         targetId: lowestPlayer.id,
         playerHealth: player.health,
         targetHealth: lowestPlayer.health,
+      });
+    } else {
+      // Wave Survival mode - heal to full and gain temporary invincibility
+      const stats = PLAYER_CLASSES[player.classType];
+      player.health = stats.health;
+      player.spawnProtection = true;
+      player.spawnProtectionEnd = Date.now() + 3000;
+
+      this.io.to(this.code).emit('player:heal', {
+        playerId: player.id,
+        health: player.health,
+        maxHealth: stats.health,
       });
     }
   }
