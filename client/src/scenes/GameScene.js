@@ -553,12 +553,15 @@ export class GameScene extends Phaser.Scene {
     SocketManager.on('room:backToLobby', (data) => {
       SoundManager.stopDubstep();
       this.shutdown();
+      const players = data.players || [];
+      const isHost = players.length > 0 && players[0].id === SocketManager.playerId;
       this.scene.start('LobbyScene', {
         roomCode: this.roomCode,
-        isHost: this.isHost,
+        isHost: isHost,
         returnedFromGame: true,
         selectedMap: data.selectedMap,
         gameMode: data.gameMode,
+        players: players,
       });
     });
   }

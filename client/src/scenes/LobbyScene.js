@@ -27,7 +27,7 @@ export class LobbyScene extends Phaser.Scene {
     this.selectedClass = defaultClass;
     this.selectedMap = data.selectedMap || 'ARENA';
     this.selectedGameMode = data.gameMode || 'ARENA';
-    this.players = [];
+    this.players = data.players || [];
     this.isReady = false;
     this.returnedFromGame = data.returnedFromGame || false;
 
@@ -767,10 +767,12 @@ export class LobbyScene extends Phaser.Scene {
   updateGameSummary() {
     this.gameSummaryContainer.removeAll(true);
 
-    const mode = GAME_MODES[this.selectedGameMode];
-    const map = MAPS[this.selectedMap];
+    const mode = GAME_MODES[this.selectedGameMode] || GAME_MODES.ARENA;
+    const map = MAPS[this.selectedMap] || MAPS.ARENA;
     const isSpanish = getLanguage() === 'es-AR';
-    const myClass = getCharacter(this.selectedClass);
+    const myClass = getCharacter(this.selectedClass) || getCharacter(getCharacterList()[0]);
+
+    if (!mode || !map || !myClass) return;
 
     const bg = this.add.rectangle(0, 0, 600, 100, 0x000000, 0.7);
     bg.setStrokeStyle(2, 0x00ffff);
@@ -786,14 +788,14 @@ export class LobbyScene extends Phaser.Scene {
     const mapName = isSpanish ? map.name : map.nameEn;
     const mapText = this.add.text(-200, 5, `${t('lobby.map')} ${mapName}`, {
       fontSize: '16px',
-      fill: map.color,
+      fill: map.color || '#ffffff',
       fontFamily: 'Courier New',
     }).setOrigin(0, 0.5);
 
     // Character
     const charText = this.add.text(-200, 35, `${t('lobby.character')} ${this.selectedClass}`, {
       fontSize: '16px',
-      fill: myClass.color,
+      fill: myClass.color || '#ffffff',
       fontFamily: 'Courier New',
     }).setOrigin(0, 0.5);
 
@@ -996,9 +998,9 @@ export class LobbyScene extends Phaser.Scene {
   }
 
   goToStep(step) {
-    // For non-hosts, they can't go past CHARACTER until host advances
-    if (!this.isHost && step < STEPS.CHARACTER && this.currentStep >= STEPS.CHARACTER) {
-      // Going back is fine
+    // Non-hosts can only navigate between CHARACTER and READY
+    if (!this.isHost && step < STEPS.CHARACTER) {
+      return;
     }
 
     // If host, broadcast step change to other players
