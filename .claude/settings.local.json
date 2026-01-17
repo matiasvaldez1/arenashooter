@@ -1,25 +1,2 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(npm:*)",
-      "Bash(node:*)",
-      "Bash(ls:*)",
-      "Bash(dir:*)",
-      "Bash(tree:*)",
-      "Bash(cat:*)",
-      "Bash(mkdir:*)",
-      "Bash(rm *)",
-      "Bash(git -C * status*)",
-      "Bash(git -C * diff*)",
-      "Bash(git -C * log*)",
-      "Bash(git -C * branch*)",
-      "Bash(git -C * show*)",
-      "Bash(git -C * stash*)",
-      "Bash(git -C * add*)"
-    ],
-    "deny": [
-      "Bash(git * push*)",
-      "Bash(git * commit*)"
-    ]
-  }
 }
