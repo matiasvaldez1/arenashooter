@@ -323,7 +323,11 @@ export class Player {
     this.lastKillTime = Date.now();
 
     // Charge ultimate on kill
-    this.ultimateCharge = Math.min(100, this.ultimateCharge + 20);
+    this.ultimateCharge = Math.min(100, this.ultimateCharge + 35);
+  }
+
+  addUltimateCharge(amount) {
+    this.ultimateCharge = Math.min(100, this.ultimateCharge + amount);
   }
 
   canUseUltimate() {

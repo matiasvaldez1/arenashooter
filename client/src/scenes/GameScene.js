@@ -2992,7 +2992,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   updateGameTimer() {
-    // Only update for Arena mode
+    // Only show for Arena mode with valid time
     if (this.gameMode !== 'ARENA' || this.serverTimeRemaining === null || this.serverTimeRemaining === undefined) {
       if (this.gameTimerText) {
         this.gameTimerText.setVisible(false);
@@ -3000,6 +3000,10 @@ export class GameScene extends Phaser.Scene {
       }
       return;
     }
+
+    // Show timer
+    this.gameTimerText.setVisible(true);
+    this.timerBg.setVisible(true);
 
     const remaining = Math.max(0, this.serverTimeRemaining);
     const seconds = Math.ceil(remaining / 1000);

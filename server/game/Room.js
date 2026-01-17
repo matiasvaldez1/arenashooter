@@ -266,6 +266,7 @@ export class Room {
     const killer = this.players.get(killerId);
     if (killer) {
       killer.score += 5; // Mobs give 5 points
+      killer.addUltimateCharge(15); // Mobs give ultimate charge
 
       // Handle explosive kills perk
       if (killer.perks && killer.perks.EXPLOSIVE_KILLS) {
@@ -766,6 +767,12 @@ export class Room {
     }
 
     this.createExplosion(barrel.x, barrel.y, HAZARDS.BARREL.explosionRadius, attackerId, HAZARDS.BARREL.explosionDamage);
+
+    // Give ultimate charge to attacker
+    const attacker = this.players.get(attackerId);
+    if (attacker) {
+      attacker.addUltimateCharge(10);
+    }
 
     this.io.to(this.code).emit('barrel:explode', {
       id: barrel.id,
