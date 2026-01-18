@@ -127,37 +127,28 @@ class SoundManagerClass {
     }
   }
 
-  // ==================== K-POP MUSIC GENERATOR ====================
+  // ==================== FUNNY K-POP MUSIC GENERATOR ====================
 
   startKpop() {
     if (this.isPlaying) return;
     this.init();
     this.isPlaying = true;
     this.currentStep = 0;
+    this.kpopMeasure = 0;
 
-    // K-pop is typically 120-130 BPM, brighter and poppier
-    const bpm = 128;
+    const bpm = 130;
     const stepTime = (60 / bpm) / 4;
 
     this.dubstepInterval = setInterval(() => {
       this.playKpopStep(this.currentStep);
       this.currentStep = (this.currentStep + 1) % 32;
+      if (this.currentStep === 0) this.kpopMeasure++;
     }, stepTime * 1000);
-
-    this.startKpopSynth();
   }
 
   stopKpop() {
-    if (this.synthPad) {
-      try {
-        this.synthPad.stop();
-      } catch (e) {}
-      this.synthPad = null;
-    }
     if (this.kpopBass) {
-      try {
-        this.kpopBass.stop();
-      } catch (e) {}
+      try { this.kpopBass.stop(); } catch (e) {}
       this.kpopBass = null;
     }
   }
@@ -165,70 +156,55 @@ class SoundManagerClass {
   playKpopStep(step) {
     const time = this.audioContext.currentTime;
 
-    // Four-on-the-floor kick pattern (typical K-pop/EDM)
+    // Heavy kick on every beat
     if (step % 4 === 0) {
       this.playKpopKick(time);
     }
 
-    // Snare on 2 and 4
+    // Clap on 2 and 4
     if (step % 8 === 4) {
-      this.playKpopSnare(time);
+      this.playKpopClap(time);
     }
 
-    // Bright hi-hats on every 8th note
+    // Cowbell for that extra cheesy K-pop feel
+    if (step % 4 === 2) {
+      this.playKpopCowbell(time);
+    }
+
+    // Cheesy arpeggio melody
     if (step % 2 === 0) {
-      this.playKpopHiHat(time, step % 4 === 0 ? 0.25 : 0.15);
+      const melodyNotes = [523, 659, 784, 659, 523, 784, 659, 523]; // C5, E5, G5 pattern
+      const noteIndex = (step / 2) % melodyNotes.length;
+      this.playKpopMelody(time, melodyNotes[noteIndex]);
     }
 
-    // Synth stabs on off-beats
-    if (step % 8 === 2 || step % 8 === 6) {
-      this.playKpopStab(time);
+    // AIRHORN every 4 measures on beat 1
+    if (step === 0 && this.kpopMeasure % 4 === 0) {
+      this.playAirhorn(time);
     }
 
-    // Bass note changes - more melodic than dubstep
-    if (step % 8 === 0) {
-      const bassNotes = [130.81, 146.83, 164.81, 130.81]; // C3, D3, E3, C3
-      const noteIndex = Math.floor(step / 8) % bassNotes.length;
-      if (this.kpopBass) {
-        this.kpopBass.frequency.setValueAtTime(bassNotes[noteIndex], time);
-      }
+    // "HEY!" shout on beat 3 of every other measure
+    if (step === 8 && this.kpopMeasure % 2 === 0) {
+      this.playHeyShout(time);
     }
-  }
 
-  startKpopSynth() {
-    const time = this.audioContext.currentTime;
+    // Whistle sound every 2 measures
+    if (step === 12 && this.kpopMeasure % 2 === 1) {
+      this.playWhistle(time);
+    }
 
-    // Bright synth bass
-    this.kpopBass = this.audioContext.createOscillator();
-    this.kpopBass.type = 'square';
-    this.kpopBass.frequency.value = 130.81; // C3
+    // Record scratch for comedy
+    if (step === 0 && this.kpopMeasure % 8 === 7) {
+      this.playRecordScratch(time);
+    }
 
-    const bassFilter = this.audioContext.createBiquadFilter();
-    bassFilter.type = 'lowpass';
-    bassFilter.frequency.value = 800;
-    bassFilter.Q.value = 2;
-
-    const bassGain = this.audioContext.createGain();
-    bassGain.gain.value = 0.25;
-
-    this.kpopBass.connect(bassFilter);
-    bassFilter.connect(bassGain);
-    bassGain.connect(this.compressor);
-
-    this.kpopBass.start(time);
-
-    // Bright pad chord
-    this.synthPad = this.audioContext.createOscillator();
-    this.synthPad.type = 'triangle';
-    this.synthPad.frequency.value = 523.25; // C5
-
-    const padGain = this.audioContext.createGain();
-    padGain.gain.value = 0.08;
-
-    this.synthPad.connect(padGain);
-    padGain.connect(this.compressor);
-
-    this.synthPad.start(time);
+    // Bass drop buildup and drop
+    if (this.kpopMeasure % 4 === 3 && step >= 24) {
+      this.playBuildupNote(time, step - 24);
+    }
+    if (step === 0 && this.kpopMeasure % 4 === 0 && this.kpopMeasure > 0) {
+      this.playBigDrop(time);
+    }
   }
 
   playKpopKick(time) {
@@ -236,108 +212,256 @@ class SoundManagerClass {
     const gain = this.audioContext.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(160, time);
-    osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+    osc.frequency.setValueAtTime(180, time);
+    osc.frequency.exponentialRampToValueAtTime(35, time + 0.12);
 
-    gain.gain.setValueAtTime(0.6, time);
-    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+    gain.gain.setValueAtTime(0.7, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
 
     osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(time);
+    osc.stop(time + 0.2);
+  }
+
+  playKpopClap(time) {
+    // Layer multiple noise bursts for a big clap
+    for (let layer = 0; layer < 3; layer++) {
+      const bufferSize = this.audioContext.sampleRate * 0.08;
+      const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+      }
+
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1500 + layer * 500;
+      filter.Q.value = 1;
+
+      const gain = this.audioContext.createGain();
+      gain.gain.value = 0.25;
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.compressor);
+
+      noise.start(time + layer * 0.01);
+    }
+  }
+
+  playKpopCowbell(time) {
+    const osc1 = this.audioContext.createOscillator();
+    const osc2 = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc1.type = 'square';
+    osc1.frequency.value = 800;
+    osc2.type = 'square';
+    osc2.frequency.value = 540;
+
+    gain.gain.setValueAtTime(0.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 700;
+    filter.Q.value = 3;
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.compressor);
+
+    osc1.start(time);
+    osc2.start(time);
+    osc1.stop(time + 0.08);
+    osc2.stop(time + 0.08);
+  }
+
+  playKpopMelody(time, freq) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'square';
+    osc.frequency.value = freq;
+
+    gain.gain.setValueAtTime(0.12, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 2000;
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(time);
+    osc.stop(time + 0.1);
+  }
+
+  playAirhorn(time) {
+    // Classic MLG airhorn - frequency sweep up
+    const osc1 = this.audioContext.createOscillator();
+    const osc2 = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(300, time);
+    osc1.frequency.linearRampToValueAtTime(600, time + 0.5);
+
+    osc2.type = 'sawtooth';
+    osc2.frequency.setValueAtTime(302, time);
+    osc2.frequency.linearRampToValueAtTime(604, time + 0.5);
+
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.setValueAtTime(0.3, time + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.6);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.compressor);
+
+    osc1.start(time);
+    osc2.start(time);
+    osc1.stop(time + 0.6);
+    osc2.stop(time + 0.6);
+  }
+
+  playHeyShout(time) {
+    // Synthesized "HEY!" using formant-like frequencies
+    const formants = [700, 1200, 2500];
+    formants.forEach((freq, i) => {
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.value = 180;
+
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = freq;
+      filter.Q.value = 10;
+
+      gain.gain.setValueAtTime(0.15, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.2);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.compressor);
+
+      osc.start(time);
+      osc.stop(time + 0.2);
+    });
+  }
+
+  playWhistle(time) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1800, time);
+    osc.frequency.linearRampToValueAtTime(2200, time + 0.1);
+    osc.frequency.linearRampToValueAtTime(1800, time + 0.2);
+
+    gain.gain.setValueAtTime(0.2, time);
+    gain.gain.setValueAtTime(0.2, time + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+
+    osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(time);
+    osc.stop(time + 0.25);
+  }
+
+  playRecordScratch(time) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, time);
+    osc.frequency.exponentialRampToValueAtTime(100, time + 0.15);
+
+    gain.gain.setValueAtTime(0.25, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(3000, time);
+    filter.frequency.exponentialRampToValueAtTime(500, time + 0.15);
+
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(this.compressor);
 
     osc.start(time);
     osc.stop(time + 0.15);
   }
 
-  playKpopSnare(time) {
-    // Snare with more pop character
-    const bufferSize = this.audioContext.sampleRate * 0.15;
-    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
-    const data = buffer.getChannelData(0);
+  playBuildupNote(time, stepInBuildup) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
 
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
-    }
+    // Pitch rises as buildup progresses
+    const pitchMultiplier = 1 + (stepInBuildup / 8) * 0.5;
+    osc.type = 'sawtooth';
+    osc.frequency.value = 440 * pitchMultiplier;
 
-    const noise = this.audioContext.createBufferSource();
-    noise.buffer = buffer;
+    gain.gain.setValueAtTime(0.1 + stepInBuildup * 0.02, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.08);
+
+    osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(time);
+    osc.stop(time + 0.08);
+  }
+
+  playBigDrop(time) {
+    // Big bass drop
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(80, time);
+    osc.frequency.setValueAtTime(80, time + 0.1);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.4);
+
+    gain.gain.setValueAtTime(0.5, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.5);
 
     const filter = this.audioContext.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.value = 2000;
+    filter.type = 'lowpass';
+    filter.frequency.value = 200;
 
-    const gain = this.audioContext.createGain();
-    gain.gain.value = 0.35;
-
-    noise.connect(filter);
+    osc.connect(filter);
     filter.connect(gain);
     gain.connect(this.compressor);
 
-    noise.start(time);
+    osc.start(time);
+    osc.stop(time + 0.5);
 
-    // Body tone
-    const tone = this.audioContext.createOscillator();
-    const toneGain = this.audioContext.createGain();
-
-    tone.type = 'triangle';
-    tone.frequency.setValueAtTime(250, time);
-    tone.frequency.exponentialRampToValueAtTime(150, time + 0.05);
-
-    toneGain.gain.setValueAtTime(0.3, time);
-    toneGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-
-    tone.connect(toneGain);
-    toneGain.connect(this.compressor);
-
-    tone.start(time);
-    tone.stop(time + 0.1);
-  }
-
-  playKpopHiHat(time, volume) {
-    const bufferSize = this.audioContext.sampleRate * 0.05;
+    // Add some noise punch
+    const bufferSize = this.audioContext.sampleRate * 0.1;
     const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
     const data = buffer.getChannelData(0);
-
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
     }
-
     const noise = this.audioContext.createBufferSource();
     noise.buffer = buffer;
-
-    const filter = this.audioContext.createBiquadFilter();
-    filter.type = 'highpass';
-    filter.frequency.value = 9000;
-
-    const gain = this.audioContext.createGain();
-    gain.gain.value = volume;
-
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.compressor);
-
+    const noiseGain = this.audioContext.createGain();
+    noiseGain.gain.value = 0.3;
+    noise.connect(noiseGain);
+    noiseGain.connect(this.compressor);
     noise.start(time);
-  }
-
-  playKpopStab(time) {
-    // Bright synth stab - typical K-pop sound
-    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 major chord
-    notes.forEach((freq, i) => {
-      const osc = this.audioContext.createOscillator();
-      const gain = this.audioContext.createGain();
-
-      osc.type = 'square';
-      osc.frequency.value = freq;
-
-      gain.gain.setValueAtTime(0.08, time);
-      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
-
-      osc.connect(gain);
-      gain.connect(this.compressor);
-
-      osc.start(time);
-      osc.stop(time + 0.1);
-    });
   }
 
   playDubstepStep(step) {
