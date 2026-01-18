@@ -2,6 +2,7 @@ import { SocketManager } from '../network/SocketManager.js';
 import { SoundManager } from '../utils/SoundManager.js';
 import { GAME_CONFIG, PLAYER_CLASSES, RESPAWN_TIME, KILL_STREAKS, POWERUPS, ULTIMATES, PERKS, MAP_MODIFIERS, INFINITE_HORDE_CONFIG } from '../../../shared/constants.js';
 import { MAPS, MOBS, BOSS_MOBS } from '../../../shared/maps.js';
+import { getActiveThemeId } from '../../../shared/themes/index.js';
 import { t } from '../utils/i18n.js';
 import { COLORS, fontStyle } from '../config/theme.js';
 
@@ -53,7 +54,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
-    SoundManager.startDubstep();
+    const themeId = getActiveThemeId();
+    SoundManager.setMusicStyle(themeId === 'KPOP' ? 'KPOP' : 'DUBSTEP');
+    SoundManager.startMusic();
     this.createMapBackground();
 
     // Create groups
@@ -552,7 +555,7 @@ export class GameScene extends Phaser.Scene {
 
     // Return to lobby (preserves room)
     SocketManager.on('room:backToLobby', (data) => {
-      SoundManager.stopDubstep();
+      SoundManager.stopMusic();
       this.shutdown();
       const players = data.players || [];
       const isHost = players.length > 0 && players[0].id === SocketManager.playerId;
@@ -4621,7 +4624,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   shutdown() {
-    SoundManager.stopDubstep();
+    SoundManager.stopMusic();
 
     // Remove all pending timers
     this.time.removeAllEvents();

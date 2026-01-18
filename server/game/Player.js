@@ -49,6 +49,11 @@ export class Player {
     this.spawnProtection = false;
     this.spawnProtectionEnd = 0;
 
+    // Slow effect (from abilities like Momo's FANCY)
+    this.slowed = false;
+    this.slowEndTime = 0;
+    this.slowAmount = 0;
+
     // Input state
     this.input = {
       up: false,
@@ -84,6 +89,11 @@ export class Player {
     this.shieldHits = 0;
     this.ricochetCount = 0;
 
+    // Clear slow effect on spawn
+    this.slowed = false;
+    this.slowEndTime = 0;
+    this.slowAmount = 0;
+
     // Spawn protection
     this.spawnProtection = true;
     this.spawnProtectionEnd = Date.now() + SPAWN_INVINCIBILITY;
@@ -105,6 +115,11 @@ export class Player {
     // Mech mode is slower
     if (this.mechMode) {
       speed *= 0.6;
+    }
+
+    // Slow effect (from enemy abilities)
+    if (this.slowed && Date.now() < this.slowEndTime) {
+      speed *= (1 - this.slowAmount);
     }
 
     // Kill streak bonus
@@ -248,6 +263,11 @@ export class Player {
       }
     }
 
+    // Check slow effect duration
+    if (this.slowed && now > this.slowEndTime) {
+      this.clearSlowEffect();
+    }
+
     // Calculate movement
     let dx = 0;
     let dy = 0;
@@ -324,6 +344,18 @@ export class Player {
     const oldHealth = this.health;
     this.health = Math.min(this.maxHealth, this.health + amount);
     return this.health - oldHealth;
+  }
+
+  applySlowEffect(slowAmount, duration) {
+    this.slowed = true;
+    this.slowAmount = slowAmount;
+    this.slowEndTime = Date.now() + duration;
+  }
+
+  clearSlowEffect() {
+    this.slowed = false;
+    this.slowAmount = 0;
+    this.slowEndTime = 0;
   }
 
   addKill() {

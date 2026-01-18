@@ -1093,17 +1093,20 @@ export class LobbyScene extends Phaser.Scene {
     });
 
     SocketManager.on('game:start', (data) => {
+      if (this._gameStarting) return;
+      this._gameStarting = true;
+
       this.cameras.main.shake(300, 0.02);
       this.cameras.main.flash(500, 255, 255, 255);
 
-      this.time.delayedCall(300, () => {
+      setTimeout(() => {
         this.scene.start('GameScene', {
           players: data.players,
           mapId: data.mapId,
           gameMode: data.gameMode,
           modifiers: data.modifiers || [],
         });
-      });
+      }, 300);
     });
   }
 

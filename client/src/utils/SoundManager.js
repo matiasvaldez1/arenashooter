@@ -13,6 +13,29 @@ class SoundManagerClass {
     this.volume = 0.5;
     this.waveIntensity = 1;
     this.baseBPM = 140;
+    this.musicStyle = 'DUBSTEP'; // 'DUBSTEP' or 'KPOP'
+    this.synthPad = null;
+  }
+
+  setMusicStyle(style) {
+    this.musicStyle = style;
+    if (this.isPlaying) {
+      this.stopMusic();
+      this.startMusic();
+    }
+  }
+
+  startMusic() {
+    if (this.musicStyle === 'KPOP') {
+      this.startKpop();
+    } else {
+      this.startDubstep();
+    }
+  }
+
+  stopMusic() {
+    this.stopDubstep();
+    this.stopKpop();
   }
 
   init() {
@@ -102,6 +125,219 @@ class SoundManagerClass {
       this.bassOsc.stop();
       this.bassOsc = null;
     }
+  }
+
+  // ==================== K-POP MUSIC GENERATOR ====================
+
+  startKpop() {
+    if (this.isPlaying) return;
+    this.init();
+    this.isPlaying = true;
+    this.currentStep = 0;
+
+    // K-pop is typically 120-130 BPM, brighter and poppier
+    const bpm = 128;
+    const stepTime = (60 / bpm) / 4;
+
+    this.dubstepInterval = setInterval(() => {
+      this.playKpopStep(this.currentStep);
+      this.currentStep = (this.currentStep + 1) % 32;
+    }, stepTime * 1000);
+
+    this.startKpopSynth();
+  }
+
+  stopKpop() {
+    if (this.synthPad) {
+      try {
+        this.synthPad.stop();
+      } catch (e) {}
+      this.synthPad = null;
+    }
+    if (this.kpopBass) {
+      try {
+        this.kpopBass.stop();
+      } catch (e) {}
+      this.kpopBass = null;
+    }
+  }
+
+  playKpopStep(step) {
+    const time = this.audioContext.currentTime;
+
+    // Four-on-the-floor kick pattern (typical K-pop/EDM)
+    if (step % 4 === 0) {
+      this.playKpopKick(time);
+    }
+
+    // Snare on 2 and 4
+    if (step % 8 === 4) {
+      this.playKpopSnare(time);
+    }
+
+    // Bright hi-hats on every 8th note
+    if (step % 2 === 0) {
+      this.playKpopHiHat(time, step % 4 === 0 ? 0.25 : 0.15);
+    }
+
+    // Synth stabs on off-beats
+    if (step % 8 === 2 || step % 8 === 6) {
+      this.playKpopStab(time);
+    }
+
+    // Bass note changes - more melodic than dubstep
+    if (step % 8 === 0) {
+      const bassNotes = [130.81, 146.83, 164.81, 130.81]; // C3, D3, E3, C3
+      const noteIndex = Math.floor(step / 8) % bassNotes.length;
+      if (this.kpopBass) {
+        this.kpopBass.frequency.setValueAtTime(bassNotes[noteIndex], time);
+      }
+    }
+  }
+
+  startKpopSynth() {
+    const time = this.audioContext.currentTime;
+
+    // Bright synth bass
+    this.kpopBass = this.audioContext.createOscillator();
+    this.kpopBass.type = 'square';
+    this.kpopBass.frequency.value = 130.81; // C3
+
+    const bassFilter = this.audioContext.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 800;
+    bassFilter.Q.value = 2;
+
+    const bassGain = this.audioContext.createGain();
+    bassGain.gain.value = 0.25;
+
+    this.kpopBass.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(this.compressor);
+
+    this.kpopBass.start(time);
+
+    // Bright pad chord
+    this.synthPad = this.audioContext.createOscillator();
+    this.synthPad.type = 'triangle';
+    this.synthPad.frequency.value = 523.25; // C5
+
+    const padGain = this.audioContext.createGain();
+    padGain.gain.value = 0.08;
+
+    this.synthPad.connect(padGain);
+    padGain.connect(this.compressor);
+
+    this.synthPad.start(time);
+  }
+
+  playKpopKick(time) {
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, time);
+    osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+
+    gain.gain.setValueAtTime(0.6, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.compressor);
+
+    osc.start(time);
+    osc.stop(time + 0.15);
+  }
+
+  playKpopSnare(time) {
+    // Snare with more pop character
+    const bufferSize = this.audioContext.sampleRate * 0.15;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
+    }
+
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 2000;
+
+    const gain = this.audioContext.createGain();
+    gain.gain.value = 0.35;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.compressor);
+
+    noise.start(time);
+
+    // Body tone
+    const tone = this.audioContext.createOscillator();
+    const toneGain = this.audioContext.createGain();
+
+    tone.type = 'triangle';
+    tone.frequency.setValueAtTime(250, time);
+    tone.frequency.exponentialRampToValueAtTime(150, time + 0.05);
+
+    toneGain.gain.setValueAtTime(0.3, time);
+    toneGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+    tone.connect(toneGain);
+    toneGain.connect(this.compressor);
+
+    tone.start(time);
+    tone.stop(time + 0.1);
+  }
+
+  playKpopHiHat(time, volume) {
+    const bufferSize = this.audioContext.sampleRate * 0.05;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 3);
+    }
+
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.value = 9000;
+
+    const gain = this.audioContext.createGain();
+    gain.gain.value = volume;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.compressor);
+
+    noise.start(time);
+  }
+
+  playKpopStab(time) {
+    // Bright synth stab - typical K-pop sound
+    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 major chord
+    notes.forEach((freq, i) => {
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+
+      osc.type = 'square';
+      osc.frequency.value = freq;
+
+      gain.gain.setValueAtTime(0.08, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.compressor);
+
+      osc.start(time);
+      osc.stop(time + 0.1);
+    });
   }
 
   playDubstepStep(step) {
@@ -471,11 +707,18 @@ class SoundManagerClass {
 
   playAbility(characterType, abilityName) {
     const abilityMap = {
+      // Politics characters
       MESSI: () => this.playMessiDash(),
       MILEI: () => this.playMileiChainsaw(),
       TRUMP: () => abilityName === 'TURRET' ? this.playTrumpTurret() : this.playTrumpWall(),
       BIDEN: () => this.playBidenHeal(),
       PUTIN: () => abilityName === 'BEAR' ? this.playPutinBear() : this.playPutinMissile(),
+      // K-pop characters
+      JUNGKOOK: () => this.playKpopDash(),
+      MOMO: () => this.playDanceZone(),
+      HAEWON: () => this.playVocalScream(),
+      LISA: () => this.playRapidFire(),
+      WINTER: () => this.playFreezeZone(),
     };
 
     if (abilityMap[characterType]) {
@@ -824,15 +1067,238 @@ class SoundManagerClass {
     rumble.stop(time + 0.35);
   }
 
+  // ==================== K-POP ABILITY SOUNDS ====================
+
+  playKpopDash() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Synth whoosh with sparkle
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, time);
+    osc.frequency.exponentialRampToValueAtTime(200, time + 0.15);
+
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(time);
+    osc.stop(time + 0.15);
+
+    // Sparkle high notes
+    for (let i = 0; i < 3; i++) {
+      const sparkle = this.audioContext.createOscillator();
+      const sparkleGain = this.audioContext.createGain();
+
+      sparkle.type = 'sine';
+      sparkle.frequency.value = 2000 + i * 500;
+
+      sparkleGain.gain.setValueAtTime(0.1, time + i * 0.03);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1 + i * 0.03);
+
+      sparkle.connect(sparkleGain);
+      sparkleGain.connect(this.sfxGain);
+
+      sparkle.start(time + i * 0.03);
+      sparkle.stop(time + 0.15);
+    }
+  }
+
+  playDanceZone() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Dance beat activation
+    const kick = this.audioContext.createOscillator();
+    const kickGain = this.audioContext.createGain();
+
+    kick.type = 'sine';
+    kick.frequency.setValueAtTime(150, time);
+    kick.frequency.exponentialRampToValueAtTime(50, time + 0.1);
+
+    kickGain.gain.setValueAtTime(0.4, time);
+    kickGain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+
+    kick.connect(kickGain);
+    kickGain.connect(this.sfxGain);
+
+    kick.start(time);
+    kick.stop(time + 0.1);
+
+    // Synth chord
+    const notes = [523, 659, 784];
+    notes.forEach((freq, i) => {
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+
+      gain.gain.setValueAtTime(0.15, time + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+
+      osc.start(time + 0.05);
+      osc.stop(time + 0.4);
+    });
+  }
+
+  playVocalScream() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // High-pitched vocal scream
+    const osc1 = this.audioContext.createOscillator();
+    const osc2 = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc1.type = 'sawtooth';
+    osc2.type = 'sine';
+
+    osc1.frequency.setValueAtTime(800, time);
+    osc1.frequency.linearRampToValueAtTime(1200, time + 0.1);
+    osc1.frequency.linearRampToValueAtTime(600, time + 0.3);
+
+    osc2.frequency.setValueAtTime(400, time);
+    osc2.frequency.linearRampToValueAtTime(600, time + 0.1);
+    osc2.frequency.linearRampToValueAtTime(300, time + 0.3);
+
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc1.start(time);
+    osc2.start(time);
+    osc1.stop(time + 0.3);
+    osc2.stop(time + 0.3);
+  }
+
+  playRapidFire() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Beat drop power-up sound
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(200, time);
+    osc.frequency.exponentialRampToValueAtTime(100, time + 0.15);
+
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(time);
+    osc.stop(time + 0.15);
+
+    // Hi-hat clicks
+    for (let i = 0; i < 4; i++) {
+      const bufferSize = this.audioContext.sampleRate * 0.02;
+      const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let j = 0; j < bufferSize; j++) {
+        data[j] = (Math.random() * 2 - 1) * (1 - j / bufferSize);
+      }
+
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      const hihatGain = this.audioContext.createGain();
+      hihatGain.gain.value = 0.2;
+
+      const filter = this.audioContext.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 8000;
+
+      noise.connect(filter);
+      filter.connect(hihatGain);
+      hihatGain.connect(this.sfxGain);
+
+      noise.start(time + i * 0.05);
+    }
+  }
+
+  playFreezeZone() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Ice crystallizing sound
+    const bufferSize = this.audioContext.sampleRate * 0.4;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      const progress = i / bufferSize;
+      data[i] = (Math.random() * 2 - 1) * Math.sin(progress * Math.PI) * 0.5;
+    }
+
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2000, time);
+    filter.frequency.linearRampToValueAtTime(6000, time + 0.4);
+
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    noise.start(time);
+    noise.stop(time + 0.4);
+
+    // Cold wind undertone
+    const wind = this.audioContext.createOscillator();
+    const windGain = this.audioContext.createGain();
+
+    wind.type = 'sine';
+    wind.frequency.setValueAtTime(200, time);
+    wind.frequency.linearRampToValueAtTime(150, time + 0.4);
+
+    windGain.gain.setValueAtTime(0.15, time);
+    windGain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+    wind.connect(windGain);
+    windGain.connect(this.sfxGain);
+
+    wind.start(time);
+    wind.stop(time + 0.4);
+  }
+
   // ==================== ULTIMATE SOUND EFFECTS ====================
 
   playUltimate(ultimateType) {
     const ultimateMap = {
+      // Politics ultimates
       GOLDEN_BALL: () => this.playGoldenBall(),
       DOLLARIZATION: () => this.playDollarization(),
       MAGA_MECH: () => this.playMagaMech(),
       EXECUTIVE_ORDER: () => this.playExecutiveOrder(),
       NUCLEAR_STRIKE: () => this.playNuclearStrike(),
+      // K-pop ultimates
+      DYNAMITE: () => this.playDynamite(),
+      FANCY: () => this.playFancy(),
+      OO_EFFECT: () => this.playOOEffect(),
+      MONEY: () => this.playMoney(),
+      BLACK_MAMBA: () => this.playBlackMamba(),
     };
 
     if (ultimateMap[ultimateType]) {
@@ -1205,6 +1671,302 @@ class SoundManagerClass {
       osc.start(time + i * 0.05);
       osc.stop(time + i * 0.05 + 0.2);
     });
+  }
+
+  // ==================== K-POP ULTIMATE SOUNDS ====================
+
+  playDynamite() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Explosive fireworks with K-pop energy
+    for (let i = 0; i < 8; i++) {
+      const delay = i * 0.15;
+
+      // Firework launch
+      const launch = this.audioContext.createOscillator();
+      const launchGain = this.audioContext.createGain();
+
+      launch.type = 'sine';
+      launch.frequency.setValueAtTime(300 + i * 100, time + delay);
+      launch.frequency.exponentialRampToValueAtTime(1500, time + delay + 0.1);
+
+      launchGain.gain.setValueAtTime(0.2, time + delay);
+      launchGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.1);
+
+      launch.connect(launchGain);
+      launchGain.connect(this.sfxGain);
+
+      launch.start(time + delay);
+      launch.stop(time + delay + 0.1);
+
+      // Explosion burst
+      const bufferSize = this.audioContext.sampleRate * 0.2;
+      const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let j = 0; j < bufferSize; j++) {
+        data[j] = (Math.random() * 2 - 1) * (1 - j / bufferSize);
+      }
+
+      const noise = this.audioContext.createBufferSource();
+      noise.buffer = buffer;
+
+      const burstGain = this.audioContext.createGain();
+      burstGain.gain.setValueAtTime(0.3, time + delay + 0.1);
+      burstGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.3);
+
+      noise.connect(burstGain);
+      burstGain.connect(this.sfxGain);
+
+      noise.start(time + delay + 0.1);
+    }
+
+    // "DY-NA-MITE" synth hit
+    const chord = [523, 659, 784, 1047];
+    chord.forEach(freq => {
+      const osc = this.audioContext.createOscillator();
+      const gain = this.audioContext.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq;
+
+      gain.gain.setValueAtTime(0.15, time);
+      gain.gain.exponentialRampToValueAtTime(0.01, time + 1.5);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain);
+
+      osc.start(time);
+      osc.stop(time + 1.5);
+    });
+  }
+
+  playFancy() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Hypnotic swirl effect
+    const lfo = this.audioContext.createOscillator();
+    const lfoGain = this.audioContext.createGain();
+
+    lfo.type = 'sine';
+    lfo.frequency.value = 4;
+
+    lfoGain.gain.value = 100;
+
+    const osc = this.audioContext.createOscillator();
+    const gain = this.audioContext.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    gain.gain.setValueAtTime(0.3, time);
+    gain.gain.exponentialRampToValueAtTime(0.01, time + 1.0);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    lfo.start(time);
+    osc.start(time);
+    lfo.stop(time + 1.0);
+    osc.stop(time + 1.0);
+
+    // Magical sparkle arpeggios
+    const sparkleNotes = [880, 1047, 1319, 1568, 1760];
+    sparkleNotes.forEach((freq, i) => {
+      const sparkle = this.audioContext.createOscillator();
+      const sparkleGain = this.audioContext.createGain();
+
+      sparkle.type = 'triangle';
+      sparkle.frequency.value = freq;
+
+      sparkleGain.gain.setValueAtTime(0.15, time + i * 0.1);
+      sparkleGain.gain.exponentialRampToValueAtTime(0.01, time + i * 0.1 + 0.2);
+
+      sparkle.connect(sparkleGain);
+      sparkleGain.connect(this.sfxGain);
+
+      sparkle.start(time + i * 0.1);
+      sparkle.stop(time + i * 0.1 + 0.2);
+    });
+  }
+
+  playOOEffect() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Sonic shockwave pulses
+    for (let i = 0; i < 3; i++) {
+      const delay = i * 0.3;
+
+      const wave = this.audioContext.createOscillator();
+      const waveGain = this.audioContext.createGain();
+
+      wave.type = 'sawtooth';
+      wave.frequency.setValueAtTime(200, time + delay);
+      wave.frequency.exponentialRampToValueAtTime(50, time + delay + 0.25);
+
+      waveGain.gain.setValueAtTime(0.4, time + delay);
+      waveGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.25);
+
+      wave.connect(waveGain);
+      waveGain.connect(this.sfxGain);
+
+      wave.start(time + delay);
+      wave.stop(time + delay + 0.25);
+
+      // High vocal hit
+      const vocal = this.audioContext.createOscillator();
+      const vocalGain = this.audioContext.createGain();
+
+      vocal.type = 'sine';
+      vocal.frequency.setValueAtTime(1000 + i * 200, time + delay);
+      vocal.frequency.exponentialRampToValueAtTime(600, time + delay + 0.2);
+
+      vocalGain.gain.setValueAtTime(0.25, time + delay);
+      vocalGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.2);
+
+      vocal.connect(vocalGain);
+      vocalGain.connect(this.sfxGain);
+
+      vocal.start(time + delay);
+      vocal.stop(time + delay + 0.2);
+    }
+  }
+
+  playMoney() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Cash register cha-ching
+    const ching = this.audioContext.createOscillator();
+    const chingGain = this.audioContext.createGain();
+
+    ching.type = 'triangle';
+    ching.frequency.value = 2500;
+
+    chingGain.gain.setValueAtTime(0.3, time);
+    chingGain.gain.exponentialRampToValueAtTime(0.01, time + 0.3);
+
+    ching.connect(chingGain);
+    chingGain.connect(this.sfxGain);
+
+    ching.start(time);
+    ching.stop(time + 0.3);
+
+    // Bass drop
+    const bass = this.audioContext.createOscillator();
+    const bassGain = this.audioContext.createGain();
+
+    bass.type = 'sine';
+    bass.frequency.setValueAtTime(150, time + 0.1);
+    bass.frequency.exponentialRampToValueAtTime(50, time + 0.4);
+
+    bassGain.gain.setValueAtTime(0.5, time + 0.1);
+    bassGain.gain.exponentialRampToValueAtTime(0.01, time + 0.4);
+
+    bass.connect(bassGain);
+    bassGain.connect(this.sfxGain);
+
+    bass.start(time + 0.1);
+    bass.stop(time + 0.4);
+
+    // Coin shower
+    for (let i = 0; i < 12; i++) {
+      const coin = this.audioContext.createOscillator();
+      const coinGain = this.audioContext.createGain();
+
+      coin.type = 'sine';
+      coin.frequency.value = 3000 + Math.random() * 2000;
+
+      const delay = 0.2 + Math.random() * 0.6;
+      coinGain.gain.setValueAtTime(0.1, time + delay);
+      coinGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.08);
+
+      coin.connect(coinGain);
+      coinGain.connect(this.sfxGain);
+
+      coin.start(time + delay);
+      coin.stop(time + delay + 0.08);
+    }
+  }
+
+  playBlackMamba() {
+    this.init();
+    const time = this.audioContext.currentTime;
+
+    // Ice storm wind
+    const bufferSize = this.audioContext.sampleRate * 1.5;
+    const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      const progress = i / bufferSize;
+      data[i] = (Math.random() * 2 - 1) * Math.sin(progress * Math.PI);
+    }
+
+    const noise = this.audioContext.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.audioContext.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(500, time);
+    filter.frequency.linearRampToValueAtTime(2000, time + 0.5);
+    filter.frequency.linearRampToValueAtTime(300, time + 1.5);
+    filter.Q.value = 2;
+
+    const windGain = this.audioContext.createGain();
+    windGain.gain.setValueAtTime(0.4, time);
+    windGain.gain.exponentialRampToValueAtTime(0.01, time + 1.5);
+
+    noise.connect(filter);
+    filter.connect(windGain);
+    windGain.connect(this.sfxGain);
+
+    noise.start(time);
+    noise.stop(time + 1.5);
+
+    // Ice crack sounds
+    for (let i = 0; i < 5; i++) {
+      const delay = i * 0.2;
+
+      const crack = this.audioContext.createOscillator();
+      const crackGain = this.audioContext.createGain();
+
+      crack.type = 'square';
+      crack.frequency.setValueAtTime(800 + Math.random() * 400, time + delay);
+      crack.frequency.exponentialRampToValueAtTime(100, time + delay + 0.1);
+
+      crackGain.gain.setValueAtTime(0.25, time + delay);
+      crackGain.gain.exponentialRampToValueAtTime(0.01, time + delay + 0.1);
+
+      crack.connect(crackGain);
+      crackGain.connect(this.sfxGain);
+
+      crack.start(time + delay);
+      crack.stop(time + delay + 0.1);
+    }
+
+    // Deep freeze bass
+    const freeze = this.audioContext.createOscillator();
+    const freezeGain = this.audioContext.createGain();
+
+    freeze.type = 'sine';
+    freeze.frequency.setValueAtTime(80, time);
+    freeze.frequency.linearRampToValueAtTime(40, time + 1.0);
+
+    freezeGain.gain.setValueAtTime(0.4, time);
+    freezeGain.gain.exponentialRampToValueAtTime(0.01, time + 1.0);
+
+    freeze.connect(freezeGain);
+    freezeGain.connect(this.sfxGain);
+
+    freeze.start(time);
+    freeze.stop(time + 1.0);
   }
 }
 
